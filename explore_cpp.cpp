@@ -108,6 +108,56 @@ TEST(promises, promiseUsingAsio) {
     thread.join();
 }
 
+TEST(promises, promiseUsingAsio2) {
+    boost::asio::io_context ioc;
+    boost::asio::deadline_timer timer(ioc, boost::posix_time::seconds(5));
+
+    bool check = false;
+    timer.async_wait(std::bind([&check](){
+        check = true;
+        std::cout << "timer expired" << std::endl;
+    }));
+
+    auto t = std::thread([&ioc](){
+        ioc.run();
+    });
+    t.join();
+    EXPECT_TRUE(check);
+}
+
+
+#include <boost/bind.hpp>
+
+// lamda & recursion:
+// - cannot use auto: the return type is not known at all.
+// auto can't deduce the type. we know what the if statement does,
+// returns 1, but we're not sure what the else statement would do.
+// At least our compiler doesn't know
+// - Another the reason is that the lambda function needs to be
+// captured. To capture it, we just have to pass the same in
+// the capture clause, [&]. The & says to pass everything as a reference.
+TEST(promises, periodic_timers) {
+    boost::asio::io_context ioc;
+    auto count = std::make_shared<int>(3);
+    auto t = std::make_shared<boost::asio::steady_timer>(ioc,  boost::asio::chrono::seconds(2));
+
+    std::function<void(boost::system::error_code, std::shared_ptr<boost::asio::steady_timer>, std::shared_ptr<int>)> print =
+            [&print](const boost::system::error_code& e, std::shared_ptr<boost::asio::steady_timer> t, std::shared_ptr<int> count)
+    {
+        std::cout << " hallo " << std::endl;
+
+        if ((*count) > 0 && (e == boost::system::errc::success)){
+            (*count)--;
+            t->expires_at(t->expiry() + boost::asio::chrono::seconds(2));
+            t->async_wait(boost::bind(print, boost::asio::placeholders::error, t, count));
+        }
+    };
+
+    t->async_wait(boost::bind(print, boost::asio::placeholders::error, t, count));
+
+    ioc.run();
+}
+
 TEST(steady, steadytimer) {
     boost::asio::io_context io_context;
 
@@ -158,7 +208,9 @@ public:
         std::cout << "Destroyed Entitiy" << std::endl;
     }
 
-    void Print () const {};
+    void Print () const {
+        std::cout << "Print Entitiy" << std::endl;
+    };
 };
 
 TEST(smartpointers, unique_pointer) {
@@ -179,6 +231,7 @@ TEST(smartpointers, shared_pointer) {
     {
         std::shared_ptr<Entity> e1;
         std::cout << "e1:" << e1.use_count() << std::endl;
+        EXPECT_EQ(0, e1.use_count());
         {
             // dit kan, maar wordt niet gebruikt: eerst word entity geheugen geallocceerd,
             // dan pas wordt shared pointer geheugen geallocceerd. makeshared doet dat in een keer
@@ -188,15 +241,106 @@ TEST(smartpointers, shared_pointer) {
             std::shared_ptr<Entity> shared_entity = std::make_shared<Entity>();
             std::cout << "shared_entity:" << shared_entity.use_count() << std::endl;
             std::cout << "e1:" << e1.use_count() << std::endl;
+            EXPECT_EQ(1, shared_entity.use_count());
+            EXPECT_EQ(0, e1.use_count());
 
             e1 = shared_entity;
             std::cout << "shared_entity:" << shared_entity.use_count() << std::endl;
             std::cout << "e1:" << e1.use_count() << std::endl;
+            EXPECT_EQ(2, shared_entity.use_count());
+            EXPECT_EQ(2, e1.use_count());
         }
         std::cout << "e1:" << e1.use_count() << std::endl;
+        EXPECT_EQ(1, e1.use_count());
         //pointer is alive!
     }
     // pointer is destoyed
+}
+
+TEST(Lamda, shared_pointer_and_lamda) {
+    {
+        std::function<void(int)> lamda_captured;
+        {
+            std::shared_ptr<Entity> shared;
+            EXPECT_EQ(0, shared.use_count());
+            {
+                shared = std::make_shared<Entity>();
+                EXPECT_EQ(1, shared.use_count());
+
+                lamda_captured = [shared](int t){ // shared pointer captured in lamda -> increase use count of shared ptr
+                    shared->Print();
+                    EXPECT_EQ(shared.use_count(), t);
+                };
+
+                lamda_captured(2);
+                EXPECT_EQ(shared.use_count(), 2);
+            }
+            lamda_captured(2);
+            EXPECT_EQ(2, shared.use_count());
+        }
+        lamda_captured(1);
+    } // Entity destroyed!
+}
+
+TEST(Lamda, shared_pointer_and_lamda2) {
+    {
+        std::function<void(int)> lamda_captured;
+        {
+            std::shared_ptr<Entity> shared;
+            EXPECT_EQ(0, shared.use_count());
+            {
+                shared = std::make_shared<Entity>(); //Created Entity
+                EXPECT_EQ(1, shared.use_count());
+
+                lamda_captured = [&shared](int t){ // shared pointer captured in lamda -> does not increase use count of shared ptr
+
+                    shared->Print();
+                    std::cout << shared.use_count() << std::endl;
+                    EXPECT_EQ(shared.use_count(), t);
+                };
+
+                lamda_captured(1); // Print Entitiy
+                EXPECT_EQ(shared.use_count(), 1);
+            }
+            lamda_captured(1); // Print Entitiy
+            EXPECT_EQ(1, shared.use_count());
+            shared.reset();
+            EXPECT_EQ(0, shared.use_count());
+        }  // Entity destroyed!
+        lamda_captured(0);
+    }
+}
+
+int Pass(std::function<int(int)> lamda, int arg) {
+    return lamda(arg);
+}
+TEST(Lamda, passing_a_lamda) {
+    std::function<int(int)> lamda = [](int a){
+        std::cout << " lamda called " << std::endl;
+        return 2*a;
+    };
+
+    EXPECT_EQ(Pass(lamda, 2), 4);
+}
+
+TEST(Lamda, reference_to_a_shared_pointer_does_not_increase_ref_count) {
+    {
+        std::shared_ptr<Entity> shared;
+        EXPECT_EQ(0, shared.use_count());
+        {
+            shared = std::make_shared<Entity>();
+            EXPECT_EQ(1, shared.use_count());
+
+            auto lamda_captured = [&shared](int t){
+                shared->Print();
+                EXPECT_EQ(shared.use_count(), t);
+            };
+
+            lamda_captured(1);                      //reference of shared pointer does not increase ref count
+            EXPECT_EQ(shared.use_count(), 1);
+        }
+        EXPECT_EQ(1, shared.use_count());
+    }
 }
 
 TEST(smartpointers, weak_pointer) {
@@ -798,6 +942,7 @@ TEST(algorithms, count) {
 
     // count number of elements contain the integer 2
     auto c = std::count(begin(v), end(v), 2);
+    EXPECT_EQ(1, c);
     std::cout << "count: " << c << std::endl;
 
     auto target = Hen("mar");
@@ -806,6 +951,7 @@ TEST(algorithms, count) {
         return local_s == target;
     });
 
+    EXPECT_EQ(1, d);
     std::cout << "count: " << d << std::endl;
 }
 
@@ -1199,7 +1345,7 @@ TEST(algorithms, swap) {
 
     v1 = even;
     v2 = odd;
-    std::iter_swap(begin(v1), find(begin(v2),end(v2),5));
+    std::iter_swap(begin(v1), find(begin(v2), end(v2), 5));
     EXPECT_EQ(v1[0],5);
     EXPECT_EQ(v2[2],2);
 
@@ -1305,7 +1451,6 @@ TEST(language_features, function) {
     test = [](int a) {return a>5;};
     auto b = test(4);
     std::cout << "b:" << b <<std::endl;
-
 }
 
 template<typename X, typename Y>
@@ -1339,7 +1484,7 @@ public:
     boost::optional<Address> address_;
 };
 
-TEST(boost_lib, optinal) {
+TEST(boost_lib, optional) {
     auto p = Person("John", "Doe");
     // check if optional middle_name is assigned
     // optional implicitly coversion to bool
@@ -1366,5 +1511,444 @@ TEST(boost_lib, optinal) {
     if (p.address_) {
         std::cout << p.address_->street_name_ << std::endl;
         std::cout << (*p.address_).street_name_ << std::endl;
+        std::cout << p.address_.get().street_name_ << std::endl;
     }
 }
+
+#include <boost/any.hpp>
+// Interface: Boost::Any
+// Boost::any<T> -> T can be anything, T must be copy-constuctable
+// Creation is easy -> any w; //has no value, any x(2.0), vector<any> (42, "life") // vector of any value;
+// Queries: empty() -> checks if we have a value, type() -> returs typeif of containing instance
+// getting value: use global_function any_cast -> eigher pass pointer or reference
+TEST(boost_lib, any) {
+    boost::any w;
+    EXPECT_TRUE(w.empty());
+
+    boost::any x(2.0);
+    EXPECT_FALSE(x.empty());
+    std::cout << "type name: " << x.type().name() << std::endl;
+    // EXPECT_EQ(x.type().name(), "double");
+
+    std::vector<boost::any> y{42, "life"};
+    int a = boost::any_cast<int>(y[0]);
+    EXPECT_EQ(42, a);
+
+    // First method: PAssing a reference to any will return
+    // -> a reference to the conctained object OR will throw execption
+    // here we wrap the any_cast in a try/catch
+    // this wil thow a expection: "boost::bad_any_cast: failed conversion using boost::any_cast"
+    try {
+        int b = boost::any_cast<int>(y[1]);
+    }
+    catch (const boost::bad_any_cast& e) {
+        std::cout << "wrong type: " << e.what() <<std::endl;
+    }
+
+    // Second method: Passing a pointer to any will return
+    //-> A pointer to the contained object if the type match OR return null ptr otherwise
+    int* c = boost::any_cast<int>(&y[0]);
+    EXPECT_NE(nullptr, c);
+    EXPECT_EQ(42, *c);
+
+    int* d = boost::any_cast<int>(&y[1]);   // this will give an null pointer
+    EXPECT_EQ(nullptr, d);
+
+    const char** e = boost::any_cast<const char*>(&y[1]);
+    EXPECT_EQ("life", *e);
+}
+
+// Observer pattern aka Events
+// -> Component A wants to be notified when component B does something
+// -> typical example: knowing when value has changed and updating the UI
+// Publish & subscribe mechanism
+// -> A clas can publish a particular event, e.g. NameChanged
+// -> Other classes can choose to receive notification of when a name is changed.
+// -> When the name is actually changed, all subscribers get notified (multicast)
+// boost::signals2 support this mechanism: signals and slots
+
+// boost:: signal<T>
+// -> a signal that can be sent to anyone willing to listen
+// -> T is the type of the slot function
+// A slot is the function that receives the signal
+// -> ordinary function
+// -> Fuctor, std::function
+// -> Lamda
+// Connection
+// -> signal<void()> s; // creates the signal
+// -> auto c = s.connect([](){ cout<<"test"<<endl;}); // connects the signal to the slot
+// more that one slot can be connected to a signal
+// disonnection
+// -> c.disconnect();
+// -> disconnects all slots
+// Slots can be blocked
+// -> Temporarily disabled but not permanently disconnected
+// -> Used to prevent infinite recursion
+// -> shared_connection_block(c);
+// -> Unblocked when block is destroyed (e.g. out of scope) or explicity via block.unblock();
+
+#include <boost/signals2.hpp>
+
+template<typename T> class INotifyPropertyChanged {
+public:
+    boost::signals2::signal<void(const T*, std::string, int)> PropertyChanged;
+};
+
+class Player: public INotifyPropertyChanged<Player>{
+public:
+    Player(std::string name): name_(name), number_of_goals(0){}
+
+    std::string name_;
+    int age_;
+    int number_of_goals;
+
+    boost::signals2::signal<void()> Scores;                                 //signal without arguments
+    typedef boost::signals2::signal<void(std::string)> signalType;
+    signalType Scores_with_name;                                            //signal with arguments
+    boost::signals2::signal<void(std::string, int)> Scores_with_name_and_goals;
+
+    void Scores_function() {
+        number_of_goals ++;
+        Scores_with_name_and_goals(name_, number_of_goals);
+    }
+
+    int GetAge() {return age_;}
+    void SetAge(int age) {
+        if (age == age_) return;
+
+        age_ = age;
+        PropertyChanged(this, "Age", age_);
+    }
+};
+
+TEST(boost_lib, Signals2) {
+    int scored = 0;
+    Player p("Jan");
+
+    // connect signal with a slot
+    auto a = p.Scores.connect([&scored](){
+        std::cout << "well done" << std::endl;
+        scored ++;
+    });
+
+    p.Scores();
+    EXPECT_EQ(1 ,scored);
+
+    // connect signal with a slot
+    auto b = p.Scores_with_name.connect([&scored](std::string name){
+        std::cout << "well done: " << name << std::endl;
+        EXPECT_EQ("Jan" ,name);
+        scored ++;
+    });
+
+    p.Scores_with_name(p.name_);
+    EXPECT_EQ(2 ,scored);
+
+    //disconnect signal from all slots
+    p.Scores.disconnect_all_slots();
+    p.Scores_with_name.disconnect_all_slots();
+    p.Scores_with_name(p.name_);
+
+    p.Scores();
+    EXPECT_EQ(2 ,scored); // not increased
+
+    ////////////////////////////////
+
+    auto c = p.Scores_with_name_and_goals.connect([&scored](std::string name, int count) {
+        std::cout << "player " << name << " has scored " << count << std::endl;
+        scored ++;
+    });
+    p.Scores_function();
+    EXPECT_EQ(3 ,scored);
+    p.Scores_function();
+    EXPECT_EQ(4 ,scored);
+
+    {
+        boost::signals2::shared_connection_block d(c);
+        p.Scores_function();
+        EXPECT_EQ(4 ,scored); // connection blocked when block is in scope
+    }
+
+    p.Scores_function();
+    EXPECT_EQ(5 ,scored);
+}
+
+// slots can have priority
+TEST(boost_lib, Signals2_custumized_Prio) {
+    boost::signals2::signal<void()> s;
+
+    // prio
+    s.connect(1,[](){
+        std::cout << "first" << std::endl;
+    });
+    s.connect(0,[](){
+        std::cout << "second" << std::endl;
+    });
+
+    s(); // "second" called, then "first"
+}
+
+void third() {
+    std::cout << "third" << std::endl;
+}
+
+// Scoped connection
+// -> connect signal and slot unti it goes out of scope
+// -> able to disconnect a specific slot
+TEST(boost_lib, Signals2_custumized_Scope) {
+    boost::signals2::signal<void()> s;
+
+    s.connect(third); // connect function
+
+    {
+        auto c = s.connect(1,[](){              // connection is scoped
+            std::cout << "first" << std::endl;
+        });
+        boost::signals2::scoped_connection sc(c);
+
+        s.connect(0,[](){                       // connection is not scoped
+            std::cout << "second" << std::endl;
+        });
+        s();    // first, second and third will be called
+    }
+    // sc out of scope
+    s.disconnect(third); // disconnect third from connection
+
+    std::cout << "=============" << std::endl;
+
+
+    s(); // c is out of scope, only "second" is called;
+}
+
+class Coach
+{
+public:
+    void PlayerScored(){
+        std::cout << "well done, " << std::endl;
+    }
+    void PlayerScoredWithName(std::string name){
+        std::cout << "well done, " << name << std::endl;
+    }
+};
+TEST(boost_lib, Signals2_customized_methods) {
+    Player p("John");
+    Coach coach;
+
+    // boost::function<void(std::string)>
+    auto b = boost::bind(&Coach::PlayerScored, &coach); // binding to a member function
+    p.Scores.connect(b);
+    p.Scores_with_name.connect(boost::bind(&Coach::PlayerScoredWithName, coach, _1));
+
+    p.Scores();
+    p.Scores_with_name("Mike");
+}
+
+#include <boost/smart_ptr.hpp>
+// liftime tracking
+// -> Keep the connection alive only while the source is alive
+// -> Explicity create slot_type and use track
+TEST(boost_lib, Signals2_customized_manage) {
+    Player p("John");
+    {
+        auto coach = boost::make_shared<Coach>();       // need to use boost!
+        p.Scores_with_name.connect(
+                Player::signalType::slot_type
+                (&Coach::PlayerScoredWithName, coach.get(), _1).track(coach)
+                );
+        p.Scores_with_name("John"); // signal handled
+    }
+    p.Scores_with_name("Mike"); // signal not handled
+}
+
+// slot returns value
+// -> a slot function may return a value
+// -> the result of direing a signal is a pointer to the LAST value
+TEST(boost_lib, Signals2_advanced_return) {
+    boost::signals2::signal<float(float,float)> s;
+    s.connect(0,[](float a, float b){   // just one slot
+        return a*b;
+    });
+    EXPECT_EQ(20, *s(4,5)); // signal needs to be dereferenced to get the values
+
+    s.connect(1,[](float a, float b){   // multiple slots
+        return a+b;
+    });
+    EXPECT_EQ(9, *s(4,5)); // the last connect returns to signal
+}
+
+// Accessing connection in the slot
+TEST(boost_lib, Signals2_advanced_passing_connection) {
+    // if we want to disconnect after number of calls
+    boost::signals2::signal<void(int)> s;
+    int v = 0;
+    s.connect_extended([&v](const boost::signals2::connection& conn, int value){
+        static int count = 0;
+        if (count == 3){
+            conn.disconnect();
+        }
+        else {
+            v = v + value;
+        }
+        count ++;
+    });
+    s(1);
+    s(1);
+    s(1);
+    s(1);
+    s(1);
+    EXPECT_EQ(v, 3);
+}
+
+// notification on property changes -> a.k.a INotifyPropertyChanged
+TEST(boost_lib, Signals2_advanced_property_change) {
+    Player p("John");
+    p.PropertyChanged.connect([](const Player* p, std::string property, int value){
+        std::cout << p->name_ << " " << property << " has changed with value " << value << std::endl;
+    });
+    p.SetAge(30);
+}
+
+// string operations
+TEST(boost_lib, string_concat) {
+    std::string s2 = "hallo";
+    std::string s3 = "wereld";
+    auto s4 = s2 + " " + s3;
+    EXPECT_EQ(s4, "hallo wereld");
+
+}
+
+#include <boost/token_functions.hpp>
+#include <boost/tokenizer.hpp>
+TEST(boost_lib, string_token_demo) {
+    std::string s = "To be, or not to be?";
+
+    boost::tokenizer<> t1(s);
+    for (auto &part: t1) {
+        std::cout << "<" << part << ">" << std::endl;
+    }
+
+    boost::char_separator<char> sep("o", " ", boost::keep_empty_tokens);
+    boost::tokenizer<boost::char_separator<char>> t2(s, sep);
+    for (auto &part: t2) {
+        std::cout << "<" << part << ">" << std::endl;
+    }
+}
+
+#include <boost/lexical_cast.hpp>
+TEST(boost_lib, string_texical_cast) {
+    std::string s = "2.1";
+    double d = boost::lexical_cast<double>(s);
+    EXPECT_EQ(2.1, d);
+
+    std::string s2 = "123456";
+    int n = boost::lexical_cast<int>(s2);
+    EXPECT_EQ(123456, n);
+
+    try {
+        boost::lexical_cast<int>("abcdefg");
+    }
+    catch (const boost::bad_lexical_cast& e) {
+        std::cout << e.what() << std::endl;
+    }
+}
+
+#include <boost/algorithm/string.hpp>
+#include <boost/algorithm/string/trim_all.hpp>
+TEST(boost_lib, string_algorthm_string) {
+    std::string t = "hello world\r\n";
+    EXPECT_NE("hello world", t);
+
+    boost::algorithm::trim(t);
+    EXPECT_EQ("hello world", t);
+
+    std::string t2 = "hello    world\r\n"; // double space becomes a single space
+    EXPECT_NE("hello world", t2);
+    boost::algorithm::trim_all(t2);
+    EXPECT_EQ("hello world", t2);
+
+    boost::algorithm::to_upper(t2);
+    EXPECT_EQ("HELLO WORLD", t2);
+
+    auto t3 = boost::algorithm::to_upper_copy(t);
+    EXPECT_EQ("HELLO WORLD", t3);
+}
+
+#include <boost/bimap.hpp>
+enum class Color {
+    Red,
+    Green,
+    Blue
+};
+typedef boost::bimap<Color, std::string> ColorMapTypes;
+
+TEST(boost_lib, string_algorthm_bimap) {
+    auto r = Color::Red;
+    // std::cout << c << std::endl; not able to print
+
+    ColorMapTypes colorType;
+    colorType.insert(ColorMapTypes::value_type(Color::Red, "Red"));
+
+    Color c = colorType.right.at("Red");
+    EXPECT_EQ(Color::Red, c);
+    std::string s = colorType.left.at(Color::Red);
+    EXPECT_EQ("Red", s);
+
+    std::cout<< colorType.left.at(Color::Red) << std::endl;
+}
+
+#include <boost/units/unit.hpp>
+#include <boost/units/systems/si.hpp>
+#include <boost/units/systems/si/prefixes.hpp>
+TEST(boost_lib, string_algorthm_units) {
+    typedef boost::units::make_scaled_unit<boost::units::si::length, boost::units::scale<10, boost::units::static_rational<-2>>>::type cm;
+    boost::units::quantity<cm> d(2.0 * boost::units::si::meters);
+    boost::units::quantity<boost::units::si::time> t(100.0 * boost::units::si::seconds);
+    boost::units::quantity<boost::units::si::velocity> x(d/t);
+    // boost::units::quantity<boost::units::si::velocity> x(d/t/t); this will give compile error
+}
+
+#include <thread>
+#include <mutex>
+TEST(concurrency, threads) {
+    auto t = std::thread{}; // deault
+    EXPECT_TRUE(std::thread::id{} == t.get_id());
+    EXPECT_FALSE(t.joinable());
+
+    int test = 0;
+    auto do_stuff = [&test](int value){
+        test = value;
+        std::cout << "stuff: " << value << std::endl;
+    };
+
+    t = std::thread {do_stuff, 123};    // OS thread is constructed and imidiatly begins executing
+                                        // constructore blocks, waiting for thread to execute -> not very efficient
+                                        // any argument forwarded to constructed thread, must be evaluated in the target thread rather that the calling thread
+                                        // calling stack is pegged until constructed thread is spun up.
+
+    EXPECT_FALSE(std::thread::id{} == t.get_id());
+    EXPECT_TRUE(t.joinable());
+
+    auto handle = t.native_handle();
+    std::cout << "handle: " << handle << std::endl;
+
+    t.join();   // join t with calling thread; -> this is actually calling the destructor!
+                // calling thread will block
+    EXPECT_EQ(123, test);
+
+    EXPECT_TRUE(std::thread::id{} == t.get_id());
+    EXPECT_FALSE(t.joinable());
+
+    handle = t.native_handle();
+    std::cout << "handle: " << handle << std::endl;
+    // thread does not handle the thread resources -> does not join or clean up reasources when e.g. goes out of scope
+}
+
+
+TEST(simple, simple1) {
+    std::vector<std::vector<int>> a;
+    a.emplace_back(std::vector<int>{1,2,3,4,5});
+    a.emplace_back(std::vector<int>{6,5,4,3,2});
+    EXPECT_EQ(a[0][0], 1);
+
+}
+

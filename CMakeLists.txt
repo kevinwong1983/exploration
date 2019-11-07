@@ -11,4 +11,4 @@ file(GLOB_RECURSE SOURCES "explore_cpp.cpp" "explore_duktape.cpp" "src/*.c")
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-target_link_libraries(${PROJECT_NAME} ${GTEST_MAIN_LIBRARIES} ${GTEST_LIBRARIES} boost_system boost_date_time)
+target_link_libraries(${PROJECT_NAME} dl -pthread GTest::GTest gmock GTest::Main boost_system boost_date_time)

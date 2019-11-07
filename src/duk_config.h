@@ -31,7 +31,7 @@
  *      - x86
  *      - x64
  *      - x32
- *      - ARM 32-bit
+ *      - ARM 32-
  *      - ARM 64-bit
  *      - MIPS 32-bit
  *      - MIPS 64-bit
