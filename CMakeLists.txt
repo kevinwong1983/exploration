@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 14)
 find_package(Boost REQUIRED)
 find_package(GTest REQUIRED)
 
-file(GLOB_RECURSE SOURCES "explore_cpp.cpp" "explore_duktape.cpp" "src/*.c")
+file(GLOB_RECURSE SOURCES "boost_lib.cpp" "algorithms.cpp" "modern_cpp.cpp" "language_features.cpp" "explore_cpp.cpp")
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 
