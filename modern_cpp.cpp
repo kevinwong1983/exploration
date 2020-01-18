@@ -116,6 +116,14 @@ TEST(modern_cpp, unique_pointers2) {
     // UpdateHen(hen1); // dit gaat fout!
     auto hen2 = UpdateHen(move(hen1));
     EXPECT_EQ(hen2->eggs_, 3.3f+1.8f);
+
+    std::function<std::unique_ptr<Hen>(int, float)> egg_factory = [](int id, float eggs) {
+        return std::make_unique<Hen> (id, eggs);
+    };
+
+    auto hen3 = egg_factory(123, 45.6f);
+    EXPECT_EQ(hen3->eggs_, 45.6f);
+    EXPECT_EQ(hen3->id_, 123);
 }
 
 TEST(modern_cpp, shared_pointers1) {
@@ -130,6 +138,8 @@ TEST(modern_cpp, shared_pointers1) {
     EXPECT_NE(nullptr, sp);
     EXPECT_EQ(1, sp.use_count());
     EXPECT_TRUE(sp.unique());
+    EXPECT_EQ(*sp, 123);        // dereference retern the object pointed by the syored pointer, same as *sp.get()
+    EXPECT_EQ(*sp.get(), 123);  // sp.get gives back raw pointer
 
     auto sp2 = sp; // this already copies the pointer and increases the ref count
 
@@ -232,6 +242,19 @@ TEST(gol, vector_of_vectors2) {
     matrix.resize(number_of_columns, std::vector<std::shared_ptr<Cell>>(number_of_rows, std::make_shared<Cell>()));
 }
 
+TEST(gol, vector_of_vectors3) {
+    auto a = std::vector<int> {1,2,3,4,5};
+    auto b = std::vector<int> ();
+
+    b.insert(b.end(), a.begin(), a.end());
+
+    EXPECT_EQ(b[0], 1);
+    EXPECT_EQ(b[1], 2);
+    EXPECT_EQ(b[2], 3);
+    EXPECT_EQ(b[3], 4);
+    EXPECT_EQ(b[4], 5);
+}
+
 TEST(modern_cpp, list) {
     auto l = std::list<int> {1,2,3,4,5};
     EXPECT_EQ(l.size(), 5);
@@ -247,30 +270,43 @@ TEST(modern_cpp, list) {
 
     auto o = std::list<int> (10, 1234); // size 10, all value 1234
     EXPECT_EQ(o.size(), 10);
-    for (auto o_local : o) {
+
+    for (auto o_local : o) {            // i is integer
         EXPECT_EQ(1234, o_local);
     }
 
-    for (auto i = begin(l); i != end(l); ++i) {
-        std::cout << *i << std::endl;
+    for (auto i = begin(l); i != end(l); ++i) {     // i is iterator
+        std::cout << *i << std::endl;               // need to dereference
     }
 
     l.emplace_back(6);
     l.emplace_front(0);
     EXPECT_EQ(l.size(), 7);
-
     l.pop_front();
     l.pop_back();
     EXPECT_EQ(l.size(), 5);
 
     l.reverse();
+    // std::list does not have random access operator [] because std::list internally store elements in doubly linked list.
+    EXPECT_EQ(*std::next(l.begin(), 0), 5);
+    EXPECT_EQ(*std::next(l.begin(), 1), 4);
+    EXPECT_EQ(*std::next(l.begin(), 2), 3);
+    EXPECT_EQ(*std::next(l.begin(), 3), 2);
+    EXPECT_EQ(*std::next(l.begin(), 4), 1);
     for (auto i = begin(l); i != end(l); ++i) {
         std::cout << *i << std::endl;
     }
+
     l.sort();
+    EXPECT_EQ(*std::next(l.begin(), 0), 1);
+    EXPECT_EQ(*std::next(l.begin(), 1), 2);
+    EXPECT_EQ(*std::next(l.begin(), 2), 3);
+    EXPECT_EQ(*std::next(l.begin(), 3), 4);
+    EXPECT_EQ(*std::next(l.begin(), 4), 5);
     for (auto i = begin(l); i != end(l); ++i) {
         std::cout << *i << std::endl;
     }
+
     l.remove_if([](int value) {
         return true; // remove if return true
     });
@@ -408,7 +444,6 @@ TEST(modern_cpp, unorderd_map) {
     }
 }
 
-
 auto trim (std::string const & s) -> std::string {
     auto front = find_if_not(begin(s), end(s), isspace);    //standaard find algorithms voor containers werkt voor strings
     auto back = find_if_not(rbegin(s), rend(s), isspace);
@@ -469,30 +504,4 @@ TEST(modern_cpp, regular_expressions) {
     for (auto&& sub : m){
         std::cout << "[" << std::string(&*sub.first, sub.length()) << "]" << std::endl;
     }
-}
-
-TEST(algorithms, count) {
-    // Use auto && for the ability to modify and discard values of the sequence within the loop. (That is, unless the container provides a read-only view, such as std::initializer_list, in which case it will be effectively an auto const &.)
-    // Use auto & to modify the values of the sequence in a meaningful way.
-    // Use auto const & for read-only access.
-    // Use auto to work with (modifiable) copies.
-    auto v = std::vector<int> {1,2,3,4,5,6,7,8,9};
-    auto s = std::vector<Cell> ();
-    for(auto&& i : v) {
-        s.emplace_back(Cell(i));
-    }
-
-    // count number of elements contain the integer 2
-    auto c = std::count(begin(v), end(v), 2);
-    EXPECT_EQ(1, c);
-    std::cout << "count: " << c << std::endl;
-
-    auto target = Hen("mar");
-    target.id_ = 2;
-    auto d = std::count_if(begin(s), end(s), [&target] (auto&& local_s) {
-        return local_s == target;
-    });
-
-    EXPECT_EQ(1, d);
-    std::cout << "count: " << d << std::endl;
 }

@@ -15,6 +15,115 @@ std::unique_ptr<T> make_unique(Args&&... args)
 }
 
 
+
+struct Hen
+{
+    char const * m_name;
+
+    Hen() : m_name("") {
+        std::cout<< "default constructor" << std::endl;
+    }
+
+    explicit Hen(char const * name) : m_name(name) {
+        std::cout<< "explicit constuctor" << std::endl;
+    }
+
+    Hen(Hen const& other) : m_name(other.m_name) {
+        std::cout<< "copy constuctor with name " << m_name << std::endl;
+    }
+
+    Hen(Hen && other) : m_name(other.m_name) {
+        other.m_name = "null";
+        std::cout<< "move constuctor with name " << m_name << std::endl;
+    }
+
+    ~Hen() {
+        std::cout<< "destuctor with name " << m_name  << " " << id_ << " " << eggs_ << std::endl;
+    }
+
+    auto operator = (Hen const & other) -> Hen& {
+        m_name = other.m_name;
+        std::cout<< "copy assingment " << m_name << std::endl;
+        return *this;
+    }
+
+    auto operator = (Hen && other) -> Hen& {
+        m_name = other.m_name;
+        other.m_name = "null";
+        std::cout << "move assignment " << m_name << std::endl;
+        return *this;
+    }
+
+    void swap (Hen & other){
+        std::swap(m_name, other.m_name);
+    }
+
+    Hen(unsigned id, float eggs):
+            id_(id), eggs_(eggs), m_name("") {
+        std::cout << "custom constructor " << id_ << " " << eggs_ << std::endl;
+    }
+
+    unsigned id_;
+    float eggs_;
+};
+
+class Cell {
+public:
+    Cell():i_(0){
+        std::cout << "default constructor" << std::endl;
+    };
+
+    Cell(int i):i_(i){
+        std::cout << "constructor" << std::endl;
+    };
+
+    ~Cell() {
+        std::cout << "destructor" << std::endl;
+    }
+
+    int GetI() {
+        return i_;
+    }
+
+    auto operator==(const Cell& rhs) -> bool {
+        return i_ == rhs.i_;
+    }
+
+    bool operator==(const Hen& rhs){
+        return i_ == rhs.id_;
+    }
+
+private:
+    int i_;
+    bool alive_;
+};
+
+TEST(algorithms, count) {
+    // Use auto && for the ability to modify and discard values of the sequence within the loop. (That is, unless the container provides a read-only view, such as std::initializer_list, in which case it will be effectively an auto const &.)
+    // Use auto & to modify the values of the sequence in a meaningful way.
+    // Use auto const & for read-only access.
+    // Use auto to work with (modifiable) copies.
+    auto v = std::vector<int> {1,2,3,4,5,6,7,8,9};
+    auto s = std::vector<Cell> ();
+    for(auto&& i : v) {
+        s.emplace_back(Cell(i));
+    }
+
+    // count number of elements contain the integer 2
+    auto c = std::count(begin(v), end(v), 2);
+    EXPECT_EQ(1, c);
+    std::cout << "count: " << c << std::endl;
+
+    auto target = Hen("mar");
+    target.id_ = 2;
+    auto d = std::count_if(begin(s), end(s), [&target] (auto&& local_s) {
+        return local_s == target;
+    });
+
+    EXPECT_EQ(1, d);
+    std::cout << "count: " << d << std::endl;
+}
+
 TEST(algorithms, count_none_any_all) {
     auto v = std::vector<int> {1,2,3,4,5,6,7,8,9};
     auto all = std::all_of(begin(v),end(v),[](auto&& v_local){
@@ -257,88 +366,6 @@ TEST(algorithms, remove2) {
     v.erase(newEndIterator, end(v));  // now really erased
     EXPECT_EQ(v.size(), 1);
 }
-
-struct Hen
-{
-    char const * m_name;
-
-    Hen() : m_name("") {
-        std::cout<< "default constructor" << std::endl;
-    }
-
-    explicit Hen(char const * name) : m_name(name) {
-        std::cout<< "explicit constuctor" << std::endl;
-    }
-
-    Hen(Hen const& other) : m_name(other.m_name) {
-        std::cout<< "copy constuctor with name " << m_name << std::endl;
-    }
-
-    Hen(Hen && other) : m_name(other.m_name) {
-        other.m_name = "null";
-        std::cout<< "move constuctor with name " << m_name << std::endl;
-    }
-
-    ~Hen() {
-        std::cout<< "destuctor with name " << m_name  << " " << id_ << " " << eggs_ << std::endl;
-    }
-
-    auto operator = (Hen const & other) -> Hen& {
-        m_name = other.m_name;
-        std::cout<< "copy assingment " << m_name << std::endl;
-        return *this;
-    }
-
-    auto operator = (Hen && other) -> Hen& {
-        m_name = other.m_name;
-        other.m_name = "null";
-        std::cout << "move assignment " << m_name << std::endl;
-        return *this;
-    }
-
-    void swap (Hen & other){
-        std::swap(m_name, other.m_name);
-    }
-
-    Hen(unsigned id, float eggs):
-            id_(id), eggs_(eggs), m_name("") {
-        std::cout << "custom constructor " << id_ << " " << eggs_ << std::endl;
-    }
-
-    unsigned id_;
-    float eggs_;
-};
-
-class Cell {
-public:
-    Cell():i_(0){
-        std::cout << "default constructor" << std::endl;
-    };
-
-    Cell(int i):i_(i){
-        std::cout << "constructor" << std::endl;
-    };
-
-    ~Cell() {
-        std::cout << "destructor" << std::endl;
-    }
-
-    int GetI() {
-        return i_;
-    }
-
-    auto operator==(const Cell& rhs) -> bool {
-        return i_ == rhs.i_;
-    }
-
-    bool operator==(const Hen& rhs){
-        return i_ == rhs.id_;
-    }
-
-private:
-    int i_;
-    bool alive_;
-};
 
 #include <numeric> // needed for iota
 TEST(algorithms, fill) {

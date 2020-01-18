@@ -384,8 +384,15 @@ TEST(review, lists) {
     test_list.emplace_back("hallo 5");
     test_list.emplace_back("hallo 6");
 
-    const auto iterator = std::find(test_list.begin(),test_list.end(),"hallo 123");
+    const std::string compare = "hallo 3";
+    const auto iterator = std::find(test_list.begin(),test_list.end(), compare);
     auto index = iterator - test_list.begin();
+    EXPECT_EQ(*iterator, compare);
+
+    auto iterator2 = std::find_if(test_list.begin(), test_list.end(), [&compare](std::string& a){
+        return (0 == a.compare(compare));
+    });
+    EXPECT_EQ(*iterator, compare);;
 }
 
 TEST(async, simple) {
@@ -492,3 +499,132 @@ TEST(simple, simple1) {
     EXPECT_EQ(a[1][4], 0);
 }
 
+#include <boost/signals2.hpp>
+
+int bind_free_function_arg = 0;
+void bind_free_function() {
+    std::cout<<"bind_function"<<std::endl;
+    bind_free_function_arg ++;
+}
+void bind_free_function_with_arg(int& ref) {
+    std::cout<<"bind_function_with_arg"<<std::endl;
+    ref ++;
+}
+int bind_free_function_with_arg3(int a, int b, int c) {
+    std::cout<<"bind_function_with_arg"<<std::endl;
+    return a-b-c;
+}
+
+bool bind_class_exist = false;
+class bind_class {
+public:
+
+    bind_class(){
+        bind_class_exist = true;
+        std::cout<<"constucted the bind class"<<std::endl;
+    }
+    ~bind_class(){
+        bind_class_exist = false;
+        std::cout<<"destructed the bind class"<<std::endl;
+    }
+
+    void bind_member_function(){
+        std::cout<<"bind_member_function"<<std::endl;
+        count_ ++;
+    }
+    void bind_member_function_with_arg(int& ref){
+        std::cout<<"bind_member_function"<<std::endl;
+        ref ++;
+    }
+    int count_ = 0;
+};
+
+TEST(dummy, binding) {
+    // understanding the return value of a bind... its just a std::function<>
+    std::function<int(int,int)> binded_function = std::bind(bind_free_function_with_arg3, std::placeholders::_2, 3, std::placeholders::_1);
+    auto val = binded_function(1, 10); // 1 = c, 10 = a, 3 = b
+    EXPECT_EQ(6, val);
+
+    // binding of lambda
+    std::function<int(int,int)> lambda = [](int a, int b){
+        return a + b;
+    };
+    EXPECT_EQ(4, lambda(1,3));
+    std::function<int(int)> binded_lambda = std::bind(lambda, std::placeholders::_1, std::placeholders::_1);
+    EXPECT_EQ(6, binded_lambda(3));
+
+    // use a free function as a callback
+    // connection a free function to a signal
+    auto signal_free_normal = boost::signals2::signal<void()>();
+    signal_free_normal.connect(bind_free_function);
+    signal_free_normal();
+    EXPECT_EQ(1, bind_free_function_arg);
+
+    // use a free function with args as a callback
+    // connecting a binded free function to a signal .. if without arguments, its the same as previous
+    auto signal_free_bind = boost::signals2::signal<void()>();
+    auto /* std::function<void()> */ a = std::bind(bind_free_function);
+    signal_free_bind.connect(a);
+    signal_free_bind();
+    EXPECT_EQ(2, bind_free_function_arg);
+
+    // use a free function with args as a callback
+    // connection a free function with args to a signal
+    int count = 0;
+    auto signal_free_with_arg_normal = boost::signals2::signal<void(int&)>();
+    signal_free_with_arg_normal.connect(bind_free_function_with_arg);
+    signal_free_with_arg_normal(count);
+    EXPECT_EQ(1,count);
+
+    // use a binded free function with args as a callback
+    // connection a binded free function with args to a signal
+    auto signal_free_with_arg_bind = boost::signals2::signal<void()>();
+    auto b = std::bind(bind_free_function_with_arg, std::ref(count)); // here I binded the argument
+    signal_free_with_arg_bind.connect(b);
+    signal_free_with_arg_bind(); // here I dont have to give argument
+    EXPECT_EQ(2,count);
+
+    // use a member function as a callback -> this is where I really need bind
+    // connection a binded member function to a signal
+    auto bc = bind_class();
+    auto signal_member_bind = boost::signals2::signal<void()>();
+    signal_member_bind.connect(std::bind(&bind_class::bind_member_function, &bc));  // bc needs to be a pointer, otherwise it just created a copy
+    signal_member_bind();
+    EXPECT_EQ(1,bc.count_);
+
+    // connection a member function to a signal
+    int signal_member_bind_with_arg_value = 0;
+    auto signal_member_bind_with_arg = boost::signals2::signal<void()>();
+    signal_member_bind_with_arg.connect(std::bind(&bind_class::bind_member_function_with_arg, &bc, std::ref(signal_member_bind_with_arg_value)));
+    signal_member_bind_with_arg();
+    EXPECT_EQ(1, signal_member_bind_with_arg_value);
+
+    int signal_member_normal_with_arg_value = 0;
+    auto signal_member_normal_with_arg = boost::signals2::signal<void(int&)>();
+    signal_member_normal_with_arg.connect(boost::bind(&bind_class::bind_member_function_with_arg, &bc, _1)); // only works with boost!!!!
+    signal_member_normal_with_arg(std::ref(signal_member_normal_with_arg_value));
+    EXPECT_EQ(1, signal_member_normal_with_arg_value);
+}
+
+TEST(dummy, binding_to_member_scoping) {
+    int count = 0;
+    EXPECT_EQ(false, bind_class_exist);
+    {
+        auto signal_member_normal_with_arg = boost::signals2::signal<void(int&)>();
+        EXPECT_EQ(false, bind_class_exist);
+        {
+            std::shared_ptr<bind_class> bc;
+            EXPECT_EQ(false, bind_class_exist);
+            EXPECT_EQ(0, bc.use_count());
+            bc = std::make_shared<bind_class>();
+            EXPECT_EQ(1, bc.use_count());
+            signal_member_normal_with_arg.connect(boost::bind(&bind_class::bind_member_function_with_arg, bc, _1));  // increased use_count of smart pointer
+            EXPECT_EQ(2, bc.use_count());
+            EXPECT_EQ(true, bind_class_exist);
+        }
+        EXPECT_EQ(true, bind_class_exist); // object still exists!!
+        signal_member_normal_with_arg(count); // this is save :D
+    }
+    EXPECT_EQ(false, bind_class_exist); // now that signal is out of scope, object is gone.
+    EXPECT_EQ(1, count);
+}
