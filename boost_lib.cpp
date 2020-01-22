@@ -43,7 +43,7 @@ TEST(boost_lib, optional) {
 
     // use in code
     if (p.middle_name_) {
-        std::cout << *(p.middle_name_) << std::endl; // need to dereference the optional
+        std::cout << *(p.middle_name_) << std::endl;    // need to dereference the optional
         std::cout << p.middle_name_.get() << std::endl; // or use get()
     }
 
@@ -67,14 +67,15 @@ TEST(boost_lib, optional) {
 // Interface: Boost::Any
 // Boost::any<T> -> T can be anything, T must be copy-constuctable
 // Creation is easy -> any w; //has no value, any x(2.0), vector<any> (42, "life") // vector of any value;
-// Queries: empty() -> checks if we have a value, type() -> returs typeif of containing instance
-// getting value: use global_function any_cast -> eigher pass pointer or reference
+// Queries: empty() -> checks if we have a value, type() -> returns typeif of containing instance
+// getting value: use global_function any_cast -> either pass pointer or reference
 TEST(boost_lib, any) {
     boost::any w;
     EXPECT_TRUE(w.empty());
 
     boost::any x(2.0);
     EXPECT_FALSE(x.empty());
+    EXPECT_EQ(2.0, boost::any_cast<double>(x));
     std::cout << "type name: " << x.type().name() << std::endl;
     // EXPECT_EQ(x.type().name(), "double");
 
@@ -82,7 +83,7 @@ TEST(boost_lib, any) {
     int a = boost::any_cast<int>(y[0]);
     EXPECT_EQ(42, a);
 
-    // First method: PAssing a reference to any will return
+    // First method: Passing a reference to any will return
     // -> a reference to the conctained object OR will throw execption
     // here we wrap the any_cast in a try/catch
     // this wil thow a expection: "boost::bad_any_cast: failed conversion using boost::any_cast"
@@ -110,7 +111,7 @@ TEST(boost_lib, any) {
 // -> Component A wants to be notified when component B does something
 // -> typical example: knowing when value has changed and updating the UI
 // Publish & subscribe mechanism
-// -> A clas can publish a particular event, e.g. NameChanged
+// -> A class can publish a particular event, e.g. NameChanged
 // -> Other classes can choose to receive notification of when a name is changed.
 // -> When the name is actually changed, all subscribers get notified (multicast)
 // boost::signals2 support this mechanism: signals and slots
@@ -173,14 +174,18 @@ TEST(boost_lib, Signals2) {
     int scored = 0;
     Player p("Jan");
 
-    // connect signal with a slot
+    // connect signal with multiple slots
     auto a = p.Scores.connect([&scored](){
-        std::cout << "well done" << std::endl;
+        std::cout << "well done 1" << std::endl;
+        scored ++;
+    });
+    p.Scores.connect([&scored](){
+        std::cout << "well done 2" << std::endl;
         scored ++;
     });
 
     p.Scores();
-    EXPECT_EQ(1 ,scored);
+    EXPECT_EQ(2 ,scored);
 
     // connect signal with a slot
     auto b = p.Scores_with_name.connect([&scored](std::string name){
@@ -190,15 +195,15 @@ TEST(boost_lib, Signals2) {
     });
 
     p.Scores_with_name(p.name_);
-    EXPECT_EQ(2 ,scored);
+    EXPECT_EQ(3 ,scored);
 
     //disconnect signal from all slots
     p.Scores.disconnect_all_slots();
     p.Scores_with_name.disconnect_all_slots();
-    p.Scores_with_name(p.name_);
 
+    p.Scores_with_name(p.name_);
     p.Scores();
-    EXPECT_EQ(2 ,scored); // not increased
+    EXPECT_EQ(3 ,scored); // not increased
 
     ////////////////////////////////
 
@@ -207,18 +212,18 @@ TEST(boost_lib, Signals2) {
         scored ++;
     });
     p.Scores_function();
-    EXPECT_EQ(3 ,scored);
-    p.Scores_function();
     EXPECT_EQ(4 ,scored);
+    p.Scores_function();
+    EXPECT_EQ(5 ,scored);
 
     {
         boost::signals2::shared_connection_block d(c);
         p.Scores_function();
-        EXPECT_EQ(4 ,scored); // connection blocked when block is in scope
+        EXPECT_EQ(5 ,scored); // connection blocked when block is in scope
     }
 
     p.Scores_function();
-    EXPECT_EQ(5 ,scored);
+    EXPECT_EQ(6 ,scored);
 }
 
 // slots can have priority
@@ -247,14 +252,13 @@ TEST(boost_lib, Signals2_custumized_Scope) {
     boost::signals2::signal<void()> s;
 
     s.connect(third); // connect function
-
     {
-        auto c = s.connect(1,[](){              // connection is scoped
+        auto c = s.connect(1,[](){                // c = connection
             std::cout << "first" << std::endl;
         });
-        boost::signals2::scoped_connection sc(c);
+        boost::signals2::scoped_connection sc(c); //scopes your connection
 
-        s.connect(0,[](){                       // connection is not scoped
+        s.connect(0,[](){                         // connection is not scoped
             std::cout << "second" << std::endl;
         });
         s();    // first, second and third will be called
@@ -263,7 +267,6 @@ TEST(boost_lib, Signals2_custumized_Scope) {
     s.disconnect(third); // disconnect third from connection
 
     std::cout << "=============" << std::endl;
-
 
     s(); // c is out of scope, only "second" is called;
 }
@@ -278,6 +281,7 @@ public:
         std::cout << "well done, " << name << std::endl;
     }
 };
+
 TEST(boost_lib, Signals2_customized_methods) {
     Player p("John");
     Coach coach;
@@ -291,8 +295,64 @@ TEST(boost_lib, Signals2_customized_methods) {
     p.Scores_with_name("Mike");
 }
 
+class subscriber {
+public:
+    subscriber(std::string name): name_(name){}
+    void timerHandler(){
+        if (name_){
+            std::cout<< "hello, my name is: " << *name_ << std::endl;
+        } else {
+            std::cout<< "subscriber has no name." << std::endl;
+        }
+    }
+private:
+    boost::optional<std::string> name_;
+};
+
+class timer {
+public:
+    timer(boost::asio::io_context& ioc, boost::asio::chrono::seconds seconds): t_(std::make_shared<boost::asio::steady_timer> (ioc, seconds)), seconds_(seconds) {
+        t_->async_wait(boost::bind(&timer::trigger, this, boost::asio::placeholders::error, t_));
+    }
+
+    ~timer() {
+        publisher_.disconnect_all_slots();
+        t_->cancel();
+    }
+
+    void subscribe(std::function<void(void)> subscribe_cb) {
+        publisher_.connect(subscribe_cb);
+    }
+
+private:
+    void trigger(const boost::system::error_code& e, std::shared_ptr<boost::asio::steady_timer> t) {
+        std::cout << "hello" << std::endl;
+        publisher_();
+        t_->expires_at(t->expiry() + boost::asio::chrono::seconds(seconds_));
+        t_->async_wait(boost::bind(&timer::trigger, this, boost::asio::placeholders::error, t_));
+    }
+
+    boost::signals2::signal<void()> publisher_;
+    std::shared_ptr<boost::asio::steady_timer> t_;
+    boost::asio::chrono::seconds seconds_;
+};
+
+TEST(boost_lib, Signals2_customized_methods2) {
+    boost::asio::io_context ioc;
+
+    subscriber s1("jan");
+    subscriber s2("piet");
+    subscriber s3("klaas");
+    timer t(ioc, boost::asio::chrono::seconds(2));
+    t.subscribe(std::bind(&subscriber::timerHandler, &s1));
+    t.subscribe(std::bind(&subscriber::timerHandler, &s2));
+    t.subscribe(std::bind(&subscriber::timerHandler, &s3));
+
+    ioc.run();
+}
+
 #include <boost/smart_ptr.hpp>
-// liftime tracking
+// lifetime tracking
 // -> Keep the connection alive only while the source is alive
 // -> Explicity create slot_type and use track
 TEST(boost_lib, Signals2_customized_manage) {
@@ -302,6 +362,7 @@ TEST(boost_lib, Signals2_customized_manage) {
         p.Scores_with_name.connect(
                 Player::signalType::slot_type
                         (&Coach::PlayerScoredWithName, coach.get(), _1).track(coach)
+                        // can also use track_foreign(coach) for non boost pointers e.g. std::shared_ptr
         );
         p.Scores_with_name("John"); // signal handled
     }
@@ -354,15 +415,6 @@ TEST(boost_lib, Signals2_advanced_property_change) {
         std::cout << p->name_ << " " << property << " has changed with value " << value << std::endl;
     });
     p.SetAge(30);
-}
-
-// string operations
-TEST(boost_lib, string_concat) {
-    std::string s2 = "hallo";
-    std::string s3 = "wereld";
-    auto s4 = s2 + " " + s3;
-    EXPECT_EQ(s4, "hallo wereld");
-
 }
 
 #include <boost/token_functions.hpp>
@@ -427,6 +479,7 @@ enum class Color {
     Green,
     Blue
 };
+
 typedef boost::bimap<Color, std::string> ColorMapTypes;
 
 TEST(boost_lib, string_algorthm_bimap) {

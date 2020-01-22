@@ -14,8 +14,6 @@ std::unique_ptr<T> make_unique(Args&&... args)
     return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
-
-
 struct Hen
 {
     char const * m_name;
@@ -163,7 +161,7 @@ TEST(algorithms, find) {
     result = std::find_first_of(begin(v), end(v), begin(primes), end(primes));
     EXPECT_EQ(2, *result);
 
-    //Searches the range [first1,last1) for the first occurrence of the sequence
+    // Searches the range [first1,last1) for the first occurrence of the sequence
     // defined by [first2,last2), and returns an iterator to its first element,
     // or last1 if no occurrences are found
     auto subsequence = std::vector<int> {2 ,4};
@@ -171,6 +169,22 @@ TEST(algorithms, find) {
 
     result = std::search_n(begin(v), end(v), 2, 4); // two times a 4
     result = std::adjacent_find(begin(v), end(v));
+}
+
+TEST(algorithms, find_all_elements) {
+    auto v = std::vector<int> {2,4,6,6,1,3,-2,0,11,2,3,2,4,4,2,4};
+
+    auto odd = std::vector<int> ();
+    auto it = v.begin();
+    while((it = std::find_if(it, v.end(), [](int i) {return i%2;})) != v.end()) {
+        odd.emplace_back(*it);
+        it ++;
+    }
+    EXPECT_EQ(odd.size(), 4);
+    EXPECT_EQ(odd[0], 1);
+    EXPECT_EQ(odd[1], 3);
+    EXPECT_EQ(odd[2], 11);
+    EXPECT_EQ(odd[3], 3);
 }
 
 TEST(algorithms, simple_sort) {
@@ -186,7 +200,7 @@ public:
     Employee(std::string first, std::string last, int sal): first_(first), last_(last), sal_(sal) {};
     int getSalary() const {return sal_;};
     std::string getSortingName() const {return last_ + ", " + first_;};
-    bool operator<(const Employee that) const {return sal_ < that.sal_;};
+    bool operator<(const Employee that) const {return sal_ < that.sal_;};       // needs < operator to use std::sort
 private:
     std::string first_;
     std::string last_;
@@ -253,7 +267,7 @@ TEST(algorithms, loop_in_disquise) {
     // Use auto & to modify the values of the sequence.
     // Use auto const & for read-only access.
     // Use auto to work with (modifiable) copies.
-    for (auto&& i: v) { // de ref zorgt ervoor dat de waardes van vector v aangepast worden!
+    for (auto& i: v) { // de ref zorgt ervoor dat de waardes van vector v aangepast worden!
         i = 1;
     }
     // of
@@ -262,11 +276,13 @@ TEST(algorithms, loop_in_disquise) {
     for (auto&& i: v) { // de ref ref zorgt ervoor dat de waardes van vector v aangepast worden EN verwijderd kan worden !
         v.pop_back();
     }
+    EXPECT_EQ(v.size(),0);
 
     v = std::vector<int>{2, 4, 6, 6, 1, 3, -2, 0, 11, 2, 3, 2, 4, 4, 2, 4};
     for (auto& i: v) { // Use auto & to modify the values of the sequence. ??????
         v.pop_back();
     }
+    EXPECT_EQ(v.size(),0);
 }
 
 TEST(algorithms, copy) {
@@ -283,7 +299,7 @@ TEST(algorithms, copy) {
     std::copy(begin(v), position, begin(v4));   // position is end -> wordt niet meegerekend in loop
     EXPECT_EQ(v4[0], 3);
     EXPECT_EQ(v4[1], 6);
-    EXPECT_EQ(v4[2], 0);
+    EXPECT_EQ(v4[2], 0);    // o is default value
 
     auto v5 = std::vector<int> (v.size());
     std::copy_if(begin(v), end(v), begin(v5), [](auto&& e) {
@@ -292,7 +308,7 @@ TEST(algorithms, copy) {
     EXPECT_EQ(v5[0], 6);
     EXPECT_EQ(v5[1], 0);
     EXPECT_EQ(v5[2], -2);
-    EXPECT_EQ(v5[3], 0);
+    EXPECT_EQ(v5[3], 0);    // o is default value
 
     auto v6 = std::vector<int> (v.size());
     copy_n(begin(v5), 3, begin(v6));
@@ -367,8 +383,38 @@ TEST(algorithms, remove2) {
     EXPECT_EQ(v.size(), 1);
 }
 
+TEST(algorithms, remove3) {
+    auto v = std::vector<int> {1,2,3,4,5,6,7,8,9};
+    EXPECT_EQ(v.size(), 9);
+    auto it = std::remove_if(v.begin(), v.end(), [](int i){  // remove all the odd numbers
+        return (i%2);
+    });
+    // it contains all iterators of odd values
+    v.erase(it, v.end());
+    EXPECT_EQ(v.size(), 4);
+    for (auto a: v){
+        std::cout<< a << std::endl;
+    }
+
+    v = std::vector<int> {1,2,3,4,5,6,7,8,9};                // one liner
+    v.erase(std::remove_if(v.begin(), v.end(), [](int i){
+        return (i%2);
+    }), v.end());
+    EXPECT_EQ(v.size(), 4);
+}
+
 #include <numeric> // needed for iota
 TEST(algorithms, fill) {
+    // vector::begin() VS std::begin()
+    // std::begin() was added in C++11 to make it easier to write generic code (e.g. in templates).
+    // The most obvious reason for it is that plain C-style arrays do not have methods, hence no .begin().
+    // So you can use std::begin() with C-style arrays, as well as STL-style containers having their own
+    // begin() and end().
+    //
+    // If you're writing code which is not a template, you can ignore std::begin(); your fellow
+    // programmers would probably find it odd if you suddenly started using it everywhere just
+    // because it's new.
+
     auto v = std::vector<int> (10);
     std::fill(begin(v), end(v), 1);  // used copy
     EXPECT_EQ(v[0], 1);
@@ -377,6 +423,7 @@ TEST(algorithms, fill) {
     EXPECT_EQ(v[5], 2);
     EXPECT_EQ(v[6], 1);
 
+    // Fills the range [first, last) with sequentially increasing values, starting with value and repetitively evaluating ++value.
     std::iota(begin(v), end(v), 1);
     EXPECT_EQ(v[0], 1);
     EXPECT_EQ(v[1], 2);
@@ -456,6 +503,9 @@ TEST(algorithms, back_inserter) {
     // [n=0] is alias capturing -> zelde als 'n' buiten declarene met [&n].
     // mutable zegt dat mijn member variabelen van mijn lambda aan te passen zijn door de code van mijn lambda.
     std::generate_n(back_inserter(v1), 10, [n=0]()mutable{return n++;});
+    // IPV
+    // auto hans = std::vector<int> (10);
+    // std::generate(begin(v1), end(v1), [n=0]()mutable{ return n++; });
     EXPECT_EQ(v1.size(), 20);
     EXPECT_EQ(v1[10], 0);
     EXPECT_EQ(v1[11], 1);
@@ -470,6 +520,9 @@ TEST(algorithms, back_inserter) {
     // fill_n, generate_n, transform, copy, copy_if, unique_copy, reverse_copy
     auto v2 = std::vector<int>();
     std::transform(begin(v1), end(v1), back_inserter(v2), [](auto&& e) {return e*2;});
+    // IPV
+    // auto v2 = std::vector<int>(v1.size());
+    // std::transform(begin(v1), end(v1), begin(v2), [](auto&& e) {...});
     EXPECT_EQ(v2.size(), 20);
     EXPECT_EQ(v2[0], 4);
     EXPECT_EQ(v2[1], 4);
@@ -484,6 +537,9 @@ TEST(algorithms, back_inserter) {
     std::copy_if(begin(v3), end(v3), back_inserter(v4), [](auto&& e) {
         return e != 3;
     });
+    // IPV
+    // auto v5 = std::vector<int> (v.size());
+    // std::copy_if(begin(v), end(v), begin(v5), [](auto&& e) {...});
     EXPECT_EQ(v4.size(), v3.size()-1);
     EXPECT_EQ(v4[0], 6);
     EXPECT_EQ(v4[1], 1);
@@ -524,7 +580,7 @@ TEST(algorithms, swap) {
 
     v1 = even;
     v2 = odd;
-    std::iter_swap(begin(v1), find(begin(v2), end(v2), 5));
+    std::iter_swap(begin(v1), find(begin(v2), end(v2), 5)); // handy with functions that give back itterators
     EXPECT_EQ(v1[0],5);
     EXPECT_EQ(v2[2],2);
 
@@ -544,6 +600,13 @@ TEST(algorithms, partial_sort_rotate_stable_partition) {
     auto v = std::vector<int> {7,2,5,4,3,6,1};
     auto v2 = std::vector<int> (v.size());
     std::partial_sort_copy(begin(v), end(v), begin(v2), end(v2));
+    EXPECT_EQ(v2[0],1);
+    EXPECT_EQ(v2[1],2);
+    EXPECT_EQ(v2[2],3);
+    EXPECT_EQ(v2[3],4);
+    EXPECT_EQ(v2[4],5);
+    EXPECT_EQ(v2[5],6);
+    EXPECT_EQ(v2[6],7);
 
     // rotate                => move_range_within_collection
     auto v3 = std::vector<int> (6);

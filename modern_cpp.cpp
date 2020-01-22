@@ -321,8 +321,11 @@ TEST(modern_cpp, movement_within_containers) {
     // destuctor with name null
 
     auto c = std::list <Hen> ();
+    EXPECT_EQ(c.size(), 0);
     c.emplace_back(); // this will call default constructor
+    EXPECT_EQ(c.size(), 1);
     c.emplace_back("Henrietta"); // this will fill in arguments in explicit constructor
+    EXPECT_EQ(c.size(), 2);
     c.clear();
 }
 
@@ -349,7 +352,7 @@ TEST(modern_cpp, set) {
 
     result = c.emplace(6);
     EXPECT_EQ(*result.first, 6);
-    EXPECT_FALSE(result.second);
+    EXPECT_FALSE(result.second); // not added, since integer 6 was already in set
 
     EXPECT_EQ(c.erase(6), 1);
     EXPECT_FALSE(c.erase(1234));
@@ -358,7 +361,7 @@ TEST(modern_cpp, set) {
     EXPECT_EQ(*exist, 3);
 
     auto does_not_exist = c.find(1234); // if not found it will give back iterator to the end of set
-    EXPECT_EQ(does_not_exist, end(c)); //
+    EXPECT_EQ(does_not_exist, end(c));
 }
 
 TEST(modern_cpp, map) {
@@ -373,10 +376,12 @@ TEST(modern_cpp, map) {
             {3, 3.1},
             {5, 1.1}
     };
-
     EXPECT_EQ(c.size(), 5);
-    EXPECT_EQ(c[4], 4.1);
 
+    // able to use [] like an array to set and get
+    // get
+    EXPECT_EQ(c[4], 4.1);
+    // set
     c[6] = 6.1;
 
     auto v = c[7];
@@ -385,6 +390,8 @@ TEST(modern_cpp, map) {
     EXPECT_EQ(c.size(), 7);
 
     auto result = c.emplace(8, 8.1); // returns itter and bool
+    EXPECT_EQ(((*result.first).first), 8);
+    EXPECT_EQ(((*result.first).second), 8.1);
     EXPECT_TRUE(result.second);
 
     auto i = c.find(6); // find elements by value
@@ -394,6 +401,11 @@ TEST(modern_cpp, map) {
     for (auto&& a : c) {
         std::cout << a.first << " " << a.second << std::endl;
     }
+
+    // in c++17
+    // for (auto && [key,val]: c) {
+    //     std::cout << key << " " << val << std::endl;
+    // }
 }
 
 struct Han {
@@ -444,6 +456,24 @@ TEST(modern_cpp, unorderd_map) {
     }
 }
 
+TEST(modern_cpp, unorderd_map2) {
+    auto c = std::unordered_map<Han, Han>  // Han moet een Hash fuctie en een equal functie hebben
+            {
+                    {{"jaap", 123}, {"jip", 456}},
+                    {{"geit", 124}, {"jap", 567}},
+                    {{"mier", 125}, {"jop", 678}}
+            };
+    EXPECT_EQ(c.size(), 3);
+
+    auto k = Han("piet", 345);
+    c[k] = Han("jup", 789);
+    EXPECT_EQ(c.size(), 4);
+
+    for (auto&& h: c){
+        std::cout << h.first.name << " " << h.first.id << " " << h.second.name << " " << h.second.id  << std::endl;
+    }
+}
+
 auto trim (std::string const & s) -> std::string {
     auto front = find_if_not(begin(s), end(s), isspace);    //standaard find algorithms voor containers werkt voor strings
     auto back = find_if_not(rbegin(s), rend(s), isspace);
@@ -469,13 +499,16 @@ TEST(modern_cpp, string_basic) {
 
     auto hen = std::string("Mathilda");
     auto pasture = std::string("Tomatoes");
-    auto id = hen + "@" + pasture;
+    auto id = hen + "@" + pasture;              // concat string with +
 
     std::cout<< id.c_str() << std::endl;
 
-    auto pos = id.find('@');
+    auto pos = id.find('@');                    // gives back position in string
     auto pos2 = id.find('m');
+    EXPECT_EQ(pos, 8);
+    EXPECT_EQ(pos2, 11);
     std::cout<< "pos " << pos << " pos2 " << pos2 << std::endl;
+
     //auto domain = std::string(id, pos, pos2-pos); zelfde als
     auto domain = id.substr(pos, pos2-pos);
     std::cout<< "domain:" << domain << std::endl;
@@ -485,21 +518,30 @@ TEST(modern_cpp, string_basic) {
     EXPECT_EQ(trimmed, "Matilda the hen");
 }
 
+// string operations
+TEST(boost_lib, string_concat) {
+    std::string s2 = "hallo";
+    std::string s3 = "wereld";
+    auto s4 = s2 + " " + s3;
+    EXPECT_EQ(s4, "hallo wereld");
+
+}
+
+
 #include <regex>
 #include <boost/regex.hpp>
 TEST(modern_cpp, regular_expressions) {
     auto s = std::string("Call 8770-808-2321 to reach Amedlia the hen!");
 
-    auto r = std::regex{ R"((\d{3})-(\d{3})-(\d{4}))"};
+    auto r = std::regex{ R"((\d{4})-(\d{3})-(\d{4}))"};
 
     auto m = std::smatch (); // match results of string iterators
     //m = std::match_results<std::string::const_iterator>();
-
     EXPECT_TRUE(m.empty());
 
     EXPECT_TRUE(std::regex_search(s, m, r));
-
     EXPECT_FALSE(m.empty());
+    EXPECT_EQ(m.size(), 4);
 
     for (auto&& sub : m){
         std::cout << "[" << std::string(&*sub.first, sub.length()) << "]" << std::endl;
