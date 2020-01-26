@@ -628,3 +628,13 @@ TEST(dummy, binding_to_member_scoping) {
     EXPECT_EQ(false, bind_class_exist); // now that signal is out of scope, object is gone.
     EXPECT_EQ(1, count);
 }
+
+TEST(dummy, bool_to_int_cast) {
+    bool a = true;
+    bool b = true;
+    bool c = false;
+    bool d = false;
+
+    EXPECT_EQ(a + b, 2);
+    EXPECT_EQ(c + d, 0);
+}
