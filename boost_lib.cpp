@@ -26,6 +26,14 @@ class Person {
 public:
     Person(std::string first_name, std::string last_name): first_name_(first_name), last_name_(last_name) {};
     boost::optional<std::string> GetMiddleName() const {return middle_name_;};
+    void optional_in_function (boost::optional<std::string> arg = boost::none){
+        if (arg) {
+            std::cout<< "args: " << *arg <<std::endl;
+        }
+        else {
+            std::cout<< "no args "<<std::endl;
+        }
+    }
     std::string first_name_;
     std::string last_name_;
     boost::optional<std::string> middle_name_;
@@ -61,6 +69,18 @@ TEST(boost_lib, optional) {
         std::cout << (*p.address_).street_name_ << std::endl;
         std::cout << p.address_.get().street_name_ << std::endl;
     }
+
+    //
+    auto q = Person("John2", "Doe2");
+    q.optional_in_function();
+    q.optional_in_function(std::string("asdf"));
+
+    // unset a boost::optional
+    boost::optional<int> a = 5;
+    EXPECT_TRUE(a);
+    a = boost::none;
+    EXPECT_FALSE(a);
+    // std::cout << a.get() << std::endl; //Process finished with exit code 134 (interrupted by signal 6: SIGABRT)
 }
 
 #include <boost/any.hpp>
@@ -173,16 +193,21 @@ public:
 TEST(boost_lib, Signals2) {
     int scored = 0;
     Player p("Jan");
+    // no connections
+    EXPECT_TRUE(p.Scores.empty());
 
     // connect signal with multiple slots
     auto a = p.Scores.connect([&scored](){
         std::cout << "well done 1" << std::endl;
         scored ++;
     });
+    EXPECT_EQ(1, p.Scores.num_slots());
+
     p.Scores.connect([&scored](){
         std::cout << "well done 2" << std::endl;
         scored ++;
     });
+    EXPECT_EQ(2, p.Scores.num_slots());
 
     p.Scores();
     EXPECT_EQ(2 ,scored);
@@ -246,29 +271,55 @@ void third() {
 }
 
 // Scoped connection
-// -> connect signal and slot unti it goes out of scope
+// -> connect signal and slot until it goes out of scope
 // -> able to disconnect a specific slot
 TEST(boost_lib, Signals2_custumized_Scope) {
     boost::signals2::signal<void()> s;
+    EXPECT_TRUE(s.empty());
 
     s.connect(third); // connect function
+    EXPECT_EQ(1, s.num_slots());
     {
         auto c = s.connect(1,[](){                // c = connection
             std::cout << "first" << std::endl;
         });
-        boost::signals2::scoped_connection sc(c); //scopes your connection
+        boost::signals2::scoped_connection sc(c);           //scopes your connection
+        EXPECT_EQ(2, s.num_slots());
 
-        s.connect(0,[](){                         // connection is not scoped
+        s.connect(0,[](){                        // connection is not scoped
             std::cout << "second" << std::endl;
         });
+        EXPECT_EQ(3, s.num_slots());
         s();    // first, second and third will be called
     }
     // sc out of scope
+    EXPECT_EQ(2, s.num_slots());
+
     s.disconnect(third); // disconnect third from connection
+    EXPECT_EQ(1, s.num_slots());
 
     std::cout << "=============" << std::endl;
 
     s(); // c is out of scope, only "second" is called;
+}
+
+TEST(boost_lib, Signals2_custumized_Scope2) {
+    int i = 0;
+    boost::signals2::signal<void()> s;
+    {
+        boost::signals2::scoped_connection sc;
+        {
+            sc = s.connect([&i](){
+                i ++;
+            });
+            s();
+            EXPECT_EQ(1, i);
+        }
+        s();
+        EXPECT_EQ(2, i);
+    }
+    s();
+    EXPECT_EQ(2, i);
 }
 
 class Coach

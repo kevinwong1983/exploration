@@ -22,29 +22,33 @@ struct Hen
         std::cout<< "default constructor" << std::endl;
     }
 
+    ~Hen() {
+        std::cout<< "destuctor with name " << m_name  << " " << id_ << " " << eggs_ << std::endl;
+    }
+
     explicit Hen(char const * name) : m_name(name) {
         std::cout<< "explicit constuctor" << std::endl;
     }
 
+    // COPY CONSTUCTOR
     Hen(Hen const& other) : m_name(other.m_name) {
         std::cout<< "copy constuctor with name " << m_name << std::endl;
     }
 
+    // MOVE CONSTUCTOR
     Hen(Hen && other) : m_name(other.m_name) {
         other.m_name = "null";
         std::cout<< "move constuctor with name " << m_name << std::endl;
     }
 
-    ~Hen() {
-        std::cout<< "destuctor with name " << m_name  << " " << id_ << " " << eggs_ << std::endl;
-    }
-
+    // COPY ASSIGNMENT
     auto operator = (Hen const & other) -> Hen& {
         m_name = other.m_name;
         std::cout<< "copy assingment " << m_name << std::endl;
         return *this;
     }
 
+    // MOVE ASSIGNMENT
     auto operator = (Hen && other) -> Hen& {
         m_name = other.m_name;
         other.m_name = "null";
@@ -182,6 +186,19 @@ TEST(modern_cpp, vectors) {
     }
 }
 
+
+TEST(modern_cpp, vectors2) {
+    auto c = std::vector<int> {};
+    EXPECT_EQ(c.empty(), true);
+    EXPECT_EQ(c.size(), 0);
+
+    c = std::vector<int> {1,2,3,4,5};
+    EXPECT_EQ(c.size(), 5);
+
+    c.clear();
+    EXPECT_EQ(c.size(), 0);
+}
+
 class Cell {
 public:
     Cell():i_(0){
@@ -253,6 +270,8 @@ TEST(gol, vector_of_vectors3) {
     EXPECT_EQ(b[2], 3);
     EXPECT_EQ(b[3], 4);
     EXPECT_EQ(b[4], 5);
+
+
 }
 
 TEST(modern_cpp, list) {
@@ -348,11 +367,11 @@ TEST(modern_cpp, set) {
 
     auto result = c.emplace(6); // result is a pair pair<iterator, bool>
     EXPECT_EQ(*result.first, 6);
-    EXPECT_TRUE(result.second);
+    EXPECT_TRUE(result.second); // success
 
     result = c.emplace(6);
     EXPECT_EQ(*result.first, 6);
-    EXPECT_FALSE(result.second); // not added, since integer 6 was already in set
+    EXPECT_FALSE(result.second); // failed, since integer 6 was already in set
 
     EXPECT_EQ(c.erase(6), 1);
     EXPECT_FALSE(c.erase(1234));
@@ -365,7 +384,7 @@ TEST(modern_cpp, set) {
 }
 
 TEST(modern_cpp, map) {
-    auto c = std::map<int, double>();
+    auto c = std::map<int, double>();   // std::map<key, value>
 
     EXPECT_EQ(c.size(), 0);
 
@@ -389,8 +408,8 @@ TEST(modern_cpp, map) {
 
     EXPECT_EQ(c.size(), 7);
 
-    auto result = c.emplace(8, 8.1); // returns itter and bool
-    EXPECT_EQ(((*result.first).first), 8);
+    auto result = c.emplace(8, 8.1); // returns result is a pair pair<iterator, bool>
+    EXPECT_EQ(((*result.first).first), 8);  // dereference itter to get map item first = key, second = value
     EXPECT_EQ(((*result.first).second), 8.1);
     EXPECT_TRUE(result.second);
 
@@ -402,10 +421,38 @@ TEST(modern_cpp, map) {
         std::cout << a.first << " " << a.second << std::endl;
     }
 
+    // what happens if the key does not exist?
+    // C++ map :: find() function – Example to find an element by key into a map.
+    // Also, check if key exists into a map in C++ program.
+    // std::find function accept a key as an argument. So, pass the key to the find()
+    // function for which you want to get or check value in the map.
+    // If the key exist in the map, then it will return an iterator and if key is not
+    // present in the map, then the find function will return map.end().
+    auto itter = c.find(123);
+    EXPECT_EQ(c.end(), itter);
+
     // in c++17
     // for (auto && [key,val]: c) {
     //     std::cout << key << " " << val << std::endl;
     // }
+}
+
+
+TEST(modern_cpp, map_remove) {
+    auto c = std::map<std::string, double> {
+            {"1", 1.1},
+            {"4", 4.1},
+            {"2", 2.1},
+            {"3", 3.1},
+            {"5", 1.1}
+    };
+    EXPECT_EQ(c.size(), 5);
+    c.erase("4");
+    c.erase("2");
+    EXPECT_EQ(c.size(), 3);
+
+    c.erase("asf");
+    EXPECT_EQ(c.size(), 3);
 }
 
 struct Han {
@@ -439,7 +486,7 @@ namespace std
 }
 
 TEST(modern_cpp, unorderd_map) {
-    auto c = std::unordered_map<Han, double>  // Han moet een Hash fuctie en een equal functie hebben
+    auto c = std::unordered_map<Han, double>  // Han needs to have 1.Hash function and 2.equal function
             {
                     {{"jaap", 123}, 1.2},
                     {{"geid", 124}, 3.2},
@@ -457,7 +504,7 @@ TEST(modern_cpp, unorderd_map) {
 }
 
 TEST(modern_cpp, unorderd_map2) {
-    auto c = std::unordered_map<Han, Han>  // Han moet een Hash fuctie en een equal functie hebben
+    auto c = std::unordered_map<Han, Han>  // Han needs to have 1.Hash function and 2.equal function
             {
                     {{"jaap", 123}, {"jip", 456}},
                     {{"geit", 124}, {"jap", 567}},
@@ -524,9 +571,14 @@ TEST(boost_lib, string_concat) {
     std::string s3 = "wereld";
     auto s4 = s2 + " " + s3;
     EXPECT_EQ(s4, "hallo wereld");
-
 }
 
+// string operations
+TEST(boost_lib, string_cast) {
+    std::string s = "hallo";
+    auto s2 = s + std::to_string(5);
+    EXPECT_EQ(s2, "hallo5");
+}
 
 #include <regex>
 #include <boost/regex.hpp>

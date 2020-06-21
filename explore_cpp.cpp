@@ -14,25 +14,30 @@ std::unique_ptr<T> make_unique(Args&&... args)
     return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
-TEST(time, timeTest) {
+TEST(time, boost_posix_time) {
+    //
     boost::posix_time::ptime now(boost::posix_time::second_clock::local_time());
     std::cout << "now: " << now << std::endl;
-
-    std::string time_string("2019-03-01 0:0:1.000");
-    boost::posix_time::ptime from_string(boost::posix_time::time_from_string(time_string));
 
     boost::posix_time::time_duration time_duration = (boost::posix_time::seconds(0));
     std::cout << "time_duration: " << time_duration << std::endl;
 
+    //
+    std::string time_string("2019-03-01 0:0:1.000");
+    boost::posix_time::ptime time_from_string(boost::posix_time::time_from_string(time_string));
+
     boost::posix_time::time_duration ahead = (boost::posix_time::hours(1) + boost::posix_time::minutes(2) +
                                               boost::posix_time::seconds(3));
-    std::cout << "ahead: " << from_string - ahead << std::endl;
+    auto a = time_from_string - ahead;
+    EXPECT_EQ(boost::posix_time::time_from_string("2019-Feb-28 22:57:58"), a);
 
-    boost::posix_time::ptime ahead2 = boost::posix_time::second_clock::local_time();
-    std::cout << "ahead2: " << ahead2 << std::endl;
+    // same as: boost::posix_time::ptime local_time(boost::posix_time::second_clock::local_time());
+    boost::posix_time::ptime local_time = boost::posix_time::second_clock::local_time();
+    std::cout << "local_time: " << local_time << std::endl;
 
-    time_t ahead3 = time(NULL);
-    std::cout << "ahead3: " << boost::posix_time::from_time_t(ahead3) << std::endl;
+    // time struct
+    time_t utc_time = time(NULL);
+    std::cout << "utc_time: " << boost::posix_time::from_time_t(utc_time) << std::endl;
 }
 
 class Aap {
@@ -71,12 +76,17 @@ TEST(find_if, simpleTest) {
 
 TEST(Lamda, refAndVal) {
     int x = 1;
+
+    // all variable as copy
     auto valueLambda = [=]() {
         std::cout << x <<  std::endl;
     };
-    auto refLambda = [&]() {
+
+    // all variable as reference
+    std::function<void(void)> /*auto*/ refLambda = [&]() {
         std::cout << x <<  std::endl;
     };
+
     x = 13;
     valueLambda();
     refLambda();
@@ -84,30 +94,33 @@ TEST(Lamda, refAndVal) {
 
 TEST(promises, promiseUsingAsio) {
     std::promise<std::string> done;
-    boost::asio::io_context io_context;
+    boost::asio::io_context ioc;
 
-    std::function<void(int)> function = [&done](int a){
+    std::function<void(boost::system::error_code, int)> function = [&done](boost::system::error_code e, int a){
+        EXPECT_EQ(a, 2);
+        std::cout << "set hello: " << a << std::endl;
         done.set_value("hello");
     };
 
-    boost::asio::deadline_timer timer(io_context, boost::posix_time::seconds(6));
-    timer.async_wait(std::bind(function,2));
+    // zelfde als boost::asio::deadline_timer timer(ioc, boost::posix_time::seconds(6);
+    boost::asio::steady_timer timer(ioc, boost::asio::chrono::seconds(6));
+    timer.async_wait(std::bind(function ,std::placeholders::_1, 2));
 
-    std::thread thread([&io_context](){
-        io_context.run();
+    std::thread thread([&ioc](){
+        ioc.run();
     });
 
-//    done.get_future().wait();
-    std::cout << "\n>>1>>" << boost::posix_time::microsec_clock::local_time();
-    std::cout << done.get_future().get() << std::endl;
-    std::cout << "\n>>2>>" << boost::posix_time::microsec_clock::local_time();
+    // done.get_future().wait();
+    std::cout << "\n>>1>>" << boost::posix_time::microsec_clock::local_time() << std::endl;;
+    EXPECT_EQ(done.get_future().get(), "hello");
+    std::cout << "\n>>2>>" << boost::posix_time::microsec_clock::local_time() << std::endl;;
 
     thread.join();
 }
 
 TEST(promises, promiseUsingAsio2) {
     boost::asio::io_context ioc;
-    boost::asio::deadline_timer timer(ioc, boost::posix_time::seconds(5));
+    boost::asio::steady_timer timer(ioc, boost::asio::chrono::seconds(5));
 
     bool check = false;
     timer.async_wait(std::bind([&check](){
@@ -124,6 +137,20 @@ TEST(promises, promiseUsingAsio2) {
 
 #include <boost/bind.hpp>
 
+TEST(steady, steadytimer) {
+    boost::asio::io_context io_context;
+
+    auto function = [](int a){
+        std::cout << "\n>>2>>" << boost::posix_time::microsec_clock::local_time();
+    };
+
+    boost::asio::steady_timer timer(io_context, boost::asio::chrono::seconds(6));
+    timer.async_wait(std::bind(function, 1));
+
+    std::cout << "\n>>1>>" << boost::posix_time::microsec_clock::local_time();
+    io_context.run();
+}
+
 // lamda & recursion:
 // cannot use auto:
 // - the return type is not known at all.
@@ -138,7 +165,7 @@ TEST(promises, recursive_periodic_timers) {
     auto count = std::make_shared<int>(3);
     auto t = std::make_shared<boost::asio::steady_timer>(ioc,  boost::asio::chrono::seconds(2));
 
-    //std::function<void<A, B, C> name = [&name](A a, B b, C c){};
+    //std::function<int(A, B, C)> name = [&name](A a, B b, C c){return 5};
     std::function<void(boost::system::error_code, std::shared_ptr<boost::asio::steady_timer>, std::shared_ptr<int>)> print =
             [&print](const boost::system::error_code& e, std::shared_ptr<boost::asio::steady_timer> t, std::shared_ptr<int> count)
     {
@@ -157,27 +184,19 @@ TEST(promises, recursive_periodic_timers) {
     EXPECT_EQ(*count, 0);
 }
 
-TEST(steady, steadytimer) {
-    boost::asio::io_context io_context;
-
-    auto function = [](int a){
-        std::cout << "\n>>2>>" << boost::posix_time::microsec_clock::local_time();
-    };
-
-    boost::asio::steady_timer timer(io_context, boost::asio::chrono::seconds(6));
-    timer.async_wait(std::bind(function, 1));
-
-    std::cout << "\n>>1>>" << boost::posix_time::microsec_clock::local_time();
-    io_context.run();
-}
-
 int add(int a, int b) {
     return a+b;
 }
 
 TEST(bind, bindOnFunction) {
-    auto add_func = std::bind(&add,std::placeholders::_1,std::placeholders::_2);
-    std::cout << "\n" << add_func(1,2);
+    std::function<int(int,int)> add_func = std::bind(add,std::placeholders::_1,std::placeholders::_2);
+    EXPECT_TRUE(add_func);
+    if (add_func){
+        std::cout << "blaa" << std::endl;
+    }
+
+    auto a = add_func(1,2);
+    EXPECT_EQ(3, a);
 }
 
 TEST(functional, simpleTest) {
@@ -389,7 +408,8 @@ TEST(review, lists) {
     auto index = iterator - test_list.begin();
     EXPECT_EQ(*iterator, compare);
 
-    auto iterator2 = std::find_if(test_list.begin(), test_list.end(), [&compare](std::string& a){
+    // auto iterator2 = std::find_if(test_list.begin(), test_list.end(), [&compare](std::string& a){
+    auto iterator2 = std::find_if(std::begin(test_list), std::end(test_list), [&compare](std::string& a){
         return (0 == a.compare(compare));
     });
     EXPECT_EQ(*iterator, compare);;
@@ -429,7 +449,7 @@ TEST(async, simple) {
 //for(auto t=v.begin(); t!=v.end(); ++t)
 //std::cout << *t << '\n';
 //
-////packed range-based for loop - shortcut for the previos one
+////packed range-based for loop - shortcut for the previous one
 //for(auto&& x: v)
 //std::cout << x << '\n';
 //
@@ -573,7 +593,7 @@ TEST(dummy, binding) {
     int count = 0;
     auto signal_free_with_arg_normal = boost::signals2::signal<void(int&)>();
     signal_free_with_arg_normal.connect(bind_free_function_with_arg);
-    signal_free_with_arg_normal(count);
+    signal_free_with_arg_normal(count); // this has benefit that I can signal with a argument
     EXPECT_EQ(1,count);
 
     // use a binded free function with args as a callback
@@ -592,7 +612,7 @@ TEST(dummy, binding) {
     signal_member_bind();
     EXPECT_EQ(1,bc.count_);
 
-    // connection a member function to a signal
+    // connection a member function with args to a signal
     int signal_member_bind_with_arg_value = 0;
     auto signal_member_bind_with_arg = boost::signals2::signal<void()>();
     signal_member_bind_with_arg.connect(std::bind(&bind_class::bind_member_function_with_arg, &bc, std::ref(signal_member_bind_with_arg_value)));
@@ -602,7 +622,7 @@ TEST(dummy, binding) {
     int signal_member_normal_with_arg_value = 0;
     auto signal_member_normal_with_arg = boost::signals2::signal<void(int&)>();
     signal_member_normal_with_arg.connect(boost::bind(&bind_class::bind_member_function_with_arg, &bc, _1)); // only works with boost!!!!
-    signal_member_normal_with_arg(std::ref(signal_member_normal_with_arg_value));
+    signal_member_normal_with_arg(std::ref(signal_member_normal_with_arg_value)); // this has benefit that I can signal with a argument
     EXPECT_EQ(1, signal_member_normal_with_arg_value);
 }
 
@@ -616,8 +636,11 @@ TEST(dummy, binding_to_member_scoping) {
             std::shared_ptr<bind_class> bc;
             EXPECT_EQ(false, bind_class_exist);
             EXPECT_EQ(0, bc.use_count());
+
             bc = std::make_shared<bind_class>();
             EXPECT_EQ(1, bc.use_count());
+            EXPECT_EQ(true, bind_class_exist);
+
             signal_member_normal_with_arg.connect(boost::bind(&bind_class::bind_member_function_with_arg, bc, _1));  // increased use_count of smart pointer
             EXPECT_EQ(2, bc.use_count());
             EXPECT_EQ(true, bind_class_exist);
@@ -637,4 +660,640 @@ TEST(dummy, bool_to_int_cast) {
 
     EXPECT_EQ(a + b, 2);
     EXPECT_EQ(c + d, 0);
+}
+
+TEST(dummy, char_to_string_cast) {
+    const char* original_string = "hello wereld";
+
+    void* payload = (void*) original_string;
+    int payload_len = sizeof("hello wereld");
+
+    char b[payload_len];
+    int t = 0;
+    while (t < payload_len) {
+        b[t] = ((char*)payload)[t];
+        t++;
+    }
+
+    EXPECT_EQ(std::string(b), "hello wereld");
+}
+
+// wrap code that might throw an exception in a try block
+// try/catch as close to the problem as possible
+// add one or more catch blocks after the try
+// catch more speficif exception first
+// catch exception by reference
+// error types derived from std::exception => these are "marker classes" only think what they have is a "name"
+// - logic_error
+//      domain_error
+//      invalid_argument
+//      length_error
+//      out_of_range
+// - runtime_error
+//      overflow_error
+//      range_error
+//      underflow_error
+TEST(dummy, exceptions) {
+    try {
+        auto a = std::vector<int>();
+        a.emplace_back(1);
+
+        auto b = a.at(99);
+        std::cout << "b:" << b << std::endl;
+    }
+    catch (std::out_of_range& e) { // exception hyrarchie
+        std::cout << "e:" << e.what() << std::endl;
+    }
+    catch (std::exception& e) { // catch exception by reference! otherwise we experience slicing of derived exceptions
+        std::cout << "e:" << e.what() << std::endl;
+    }
+}
+
+class MqttError : public std::runtime_error {
+public:
+    MqttError( const std::string &what ) :
+            std::runtime_error( "MqttError: " + what ) {}
+};
+
+bool destructed_a = false;
+bool destructed_b = false;
+class Vos {
+public:
+    Vos(int a): a_(a) {
+        std::cout << "Vos constructor" << a_ << std::endl;
+        if (a == 0) {
+            throw std::invalid_argument("Arbitrary number for a Vos cannot be zero");
+        }
+    };
+    ~Vos() {
+        std::cout << "Vos destructor" << a_ << std::endl;
+        if (a_ == 0) {
+            destructed_a = true;
+        }
+        if (a_ == 2) {
+            destructed_b = true;
+        }
+    };
+    void ThrowStuf() {
+        throw std::invalid_argument("Stuf is thrown.");
+    };
+    void ThrowMqttError() {
+        throw MqttError("sum ting wong");
+    };
+private:
+    int a_;
+};
+
+TEST(dummy, throw_exceptions) {
+    bool done = false;
+    Vos c(1);
+    try {
+        // everything local to try goes out of scope
+        // thus if using pointers, alway use smart pointer
+        // this will call destructor when out of scope.
+        Vos b(2);   // destructor called
+        Vos a(0);   // exception thrown in constructor, destructor not called!
+        done = true;
+    }
+    catch (std::out_of_range& e) { // exception hyrarchie
+        std::cout << "e:" << e.what() << std::endl;
+    }
+    catch (std::exception& e) {
+        std::cout << "e:" << e.what() << std::endl;
+    }
+    EXPECT_FALSE(done);
+    EXPECT_FALSE(destructed_a);
+    EXPECT_TRUE(destructed_b);
+
+    // ........
+    destructed_a = false;
+    destructed_b = false;
+    try {
+        Vos b(2);   // destructor called
+        b.ThrowStuf();  // exception thown out side of constructor
+    }
+    catch (std::exception& e) {
+        std::cout << "e:" << e.what() << std::endl;
+    }
+    EXPECT_TRUE(destructed_b);
+}
+
+TEST(dummy, throw_custom_exceptions) {
+    bool done = false;
+    try {
+        Vos b(2);   // destructor called
+        b.ThrowMqttError();  // exception thown out side of constructor
+    }
+    catch (MqttError& e) {
+        std::cout << "MqttError>>>>:" << e.what() << std::endl;
+        bool done = true;
+    }
+    catch (std::exception& e) {
+        std::cout << "e:" << e.what() << std::endl;
+    }
+    EXPECT_TRUE(done);
+}
+
+class DefaultArgument {
+public:
+    void TestFuntion(const std::string& a = "asdf" ) const {
+        std::cout << "string is: " << a << std::endl;
+    }
+};
+TEST(dummy, default_argument_for_const_ref) {
+    DefaultArgument a;
+    a.TestFuntion();
+    a.TestFuntion("ASDASD");
+}
+
+TEST(dummy, pairs) {
+    auto a = std::make_pair(1,2);
+}
+
+class Animal {
+public:
+    virtual ~Animal() = 0;      // item 7. Polymorphic base classes should declare virtual destructors. If a class has any virtual functions, it should have a virtual destructor
+    virtual std::string walk() const = 0;
+    virtual std::string talk() const = 0;
+};
+
+Animal::~Animal(){
+    std::cout << __func__ << std::endl;
+}
+
+class Cow : public Animal {
+public:
+    Cow(int legs) : legs_(legs) {}
+
+    ~Cow() {
+        std::cout << __func__ << std::endl;
+    }
+
+    // copy constructor/assignment operator is needed when you have a
+    // non-copy-able variable in your class, and you want to use it.
+    Cow(const Cow &that) : legs_(that.legs_) {
+        notify_state_change_.connect(that.notify_state_change_);
+    }
+
+    Cow &operator=(const Cow &that) {
+        legs_ = that.legs_;
+        notify_state_change_.connect(that.notify_state_change_);
+        return *this;
+    }
+
+    std::string walk() const override {
+        return "walks with " + std::to_string(legs_) + " legs";
+    }
+
+    std::string talk() const override {
+        return "BOOOO";
+    }
+
+    void registers (std::function<void(void)> a) {
+        notify_state_change_.connect(a);
+    }
+
+    void call () {
+        notify_state_change_();
+    }
+
+private :
+    int legs_;
+    boost::signals2::signal<void(void)> notify_state_change_;
+};
+
+class Ape : public Animal {
+public:
+    Ape(int legs):legs_(legs){}
+    ~Ape(){
+        std::cout << __func__ << std::endl;
+    }
+
+    std::string  walk() const override {
+        return "walks with " + std::to_string(legs_) + " legs";
+    }
+    std::string  talk() const override {
+        return "hohoho";
+    }
+private :
+    int legs_;
+};
+
+class AnimalFactory {
+public:
+    static std::shared_ptr<Animal> get(const std::string& type, int legs) {
+        if (type == "cow"){
+            return std::make_shared<Cow>(legs);
+        }
+        else {
+            return std::make_shared<Ape>(legs);
+        }
+    }
+};
+
+TEST(dummy, copy_constructor) {
+    int x = 0;
+    std::function<void(void)> f = [&x](){
+        x++;
+    };
+
+    Cow c(4);
+    c.registers(f);
+
+    auto d = c;
+    EXPECT_EQ("walks with 4 legs", d.walk());
+    EXPECT_EQ("BOOOO", d.talk());
+    EXPECT_EQ("walks with 4 legs", c.walk());
+    EXPECT_EQ("BOOOO", c.talk());
+
+    c.call();
+    EXPECT_EQ(1, x);
+    d.call();
+    EXPECT_EQ(2, x);
+}
+
+TEST(dummy, virtual_functions) {
+    Cow c(4);
+    EXPECT_EQ("walks with 4 legs", c.walk());
+    EXPECT_EQ("BOOOO", c.talk());
+
+    // assignment operator
+    auto d = c;
+    EXPECT_EQ("walks with 4 legs", d.walk());
+    EXPECT_EQ("BOOOO", d.talk());
+
+    // copy operator
+    auto e(c);
+    EXPECT_EQ("walks with 4 legs", e.walk());
+    EXPECT_EQ("BOOOO", e.talk());
+
+    auto f = new Cow(4);
+    delete(f);
+
+    std::shared_ptr<Animal> g = AnimalFactory::get("cow", 4);
+    EXPECT_EQ("walks with 4 legs",  g->walk());
+    EXPECT_EQ("BOOOO",  g->talk());
+    std::shared_ptr<Animal> h = AnimalFactory::get("ape", 2);
+    EXPECT_EQ("walks with 2 legs",  h->walk());
+    EXPECT_EQ("hohoho",  h->talk());
+
+    std::vector<Cow> inner;
+    std::generate_n(std::back_inserter(inner), 5, [x = 0]() mutable { // this uses a copy of what is returned to the vector
+        Cow c(3);
+        x++;
+        return c;   // returned is then copied to vector
+    });
+}
+
+int Get_RValue(){
+    return 10;  // this function returns a rvalue
+}
+int& Get_LValue(){
+    static int value = 10;
+    return value;  // this function returns a rvalue
+}
+void SetValue1(int value){
+}
+void SetValue2(int& value){
+}
+void SetValue3(const int& value){
+}
+TEST(dummy, lvalue_rvalue_rules) {
+    // lvalue on left of equal sign, rvalue on right of equal sign -> however this does not always apply
+    int i = 10; // i is variable with location in memory, 10 is value wich has no storage or location.
+
+    // you cannot assign anything to an rvalue e.g.
+    // 10 = i;
+
+    int j = Get_LValue();   // GetValue() return rvalue (which is a temporay value with not location or storage)
+    // Get_LValue() = 5;    // assingment of rvalue does not work!
+    Get_LValue() = 5;       // asignment of lvalue works!
+
+    SetValue1(10);    // assignment of rvalue, this rvalue will be used to create an lvalue when called
+    SetValue1(i);           // assingment of lvalue
+
+    // we van easily see which on is temp. value and which one is not
+    // RULE: you cannot take a lvalue ref from an rvalue;   i.e. you can only have lvalue ref of an lvalue
+
+    // SetValue2(10);       // will not work. you cannot take lvaue ref of rvalue
+    // int& a = 10;         // also gives error: non-const lvalue reference to type 'int' cannot bind to a temporary of type 'int'
+    SetValue2(i);           // however assingment of lvalue works
+
+    // SPECIAL RULE:
+    // while I cannot have lvalue ref of rvalue, I can have an CONST lvalue ref I can!!!
+    const int& a = 10;      // this works!
+    // what compiler does: creates an temporary variable.
+    // i.e. int temp = 10; const int& a = temp;
+
+    // const int& accepts boths rvalue and lvalue!
+    SetValue3(i);
+    SetValue3(10);
+}
+
+void PrintName1(std::string& name) {        // only accepts lvalue
+    std::cout << "[lvalue]" << name << std::endl;
+}
+void PrintName2(const std::string& name) {  // accepts both lvalue and rvalue!
+    std::cout << name << std::endl;
+}
+void PrintName3(std::string&& name) {       // accepts both lvalue and rvalue!
+    std::cout << "[rvalue]" <<name << std::endl;
+}
+
+TEST(dummy, lvalue_rvalue_with_strings) {
+    std::string firstName = "Kevin";
+    std::string lastName = "Wong";
+    std::string fullName = firstName + lastName;    // temp string is created from firstName + lastName, which is then assigned to lvalue
+    // what is lvalue, what is rvalue?
+    // everything on left side is lvalue, everything on right side is rvalue
+
+    // rvalue temp string is created from firstName + lastName
+    PrintName1(fullName);  // rvalue: works!
+    // PrintName1(firstName + lastName);   // lvalue: does not work, because its an rvalue, candidate function not viable: expects an l-value for 1st argument
+
+    PrintName2(fullName);  // rvalue works!
+    PrintName2(firstName + lastName);  // rvalue: works!
+
+    // can we write function that only accepts rvalue object?
+    // YES: use a rvalue ref &&
+    // PrintName3(fullName);  // lvalue: does not accepts!
+    PrintName3(firstName + lastName);   // rvalue: works!
+
+    // advantage is with optimization, if we know we are taking in a temporary object, than we do not need to worry about ie keeping object alive
+    // and keep it intact (by coping it). We can just steal the resources that are attached to the object and use them somewhere else, because
+    // know it is temporary.
+
+    // summary:
+    // 1. lvalue are value which have starage backing them
+    // 2. rvalue are tempory values
+    // 3. lvalue refs & can only take in lvalues, unless they are const
+    // 4. rvalue refs && can only take in temporay rvalues
+}
+
+class String {
+public:
+    String() = default;
+    String(const char* string) {
+        std::cout << __func__ << " created" << std::endl;
+
+        m_Size = strlen(string);
+        m_Data = new char[m_Size];
+        memcpy(m_Data, string, m_Size);
+    }
+    String(const String& other) {
+        std::cout << __func__ << " copied" << std::endl;
+
+        m_Size = other.m_Size;
+        m_Data = new char[m_Size];
+        memcpy(m_Data, other.m_Data, m_Size);
+    }
+
+    String (String&& other) noexcept {
+        std::cout << __func__ << " moved" << std::endl;
+        // take ownership of other's data
+        m_Size = other.m_Size;
+        m_Data = other.m_Data;
+
+        //create a hollow object from other
+        other.m_Size = 0;
+        other.m_Data = nullptr;
+    }
+
+    ~String() {
+        std::cout << __func__ << " destroyed" << std::endl;
+
+        delete m_Data;
+    }
+
+    void Print() {
+        for (uint32_t i = 0; i < m_Size; i++) {
+            std::cout << m_Data[i];
+        }
+        std::cout << std::endl;
+    }
+private:
+    char* m_Data;
+    uint32_t m_Size;
+
+};
+
+class MyEntity {
+public:
+    MyEntity (const String& name) : m_Name(name) {
+        std::cout << __func__ <<" created" << std::endl;
+    }
+
+    MyEntity (String&& name) : m_Name(std::move(name)) {
+        std::cout << __func__ << " moved" << std::endl;
+    }
+
+    void PrintName(){
+        m_Name.Print();
+    }
+private:
+    String m_Name;
+};
+
+TEST(dummy, move_semantics) {
+    std::cout << "1" << std::endl;
+    MyEntity entity("Kevin"); // "Kevin" is a temporay rvale String. It is created/allocated and then Copied in copy constructor!
+    std::cout << "2" << std::endl;
+    entity.PrintName();
+
+    // we are able to create/allocaed here and then MOVE it.
+    //
+
+}
+
+#include "rapidjson/document.h"     // rapidjson's DOM-style API
+#include "rapidjson/prettywriter.h" // for stringify JSON
+#include <cstdio>
+
+using namespace rapidjson;
+using namespace std;
+
+TEST(rapidjson, json) {
+    const char json[] = " { \"hello\" : \"world\", \"t\" : true , \"f\" : false, \"n\": null, \"i\":123, \"pi\": 3.1416, \"a\":[1, 2, 3, 4] } ";
+
+    Document document;
+    EXPECT_FALSE(document.Parse(json).HasParseError());
+
+    EXPECT_TRUE(document["hello"].IsString());
+    EXPECT_EQ("world", document["hello"].GetString());
+    document["hello"] = "kitty";
+    EXPECT_EQ("kitty", document["hello"].GetString());
+
+    EXPECT_TRUE(document["t"].IsBool());
+    EXPECT_EQ(true, document["t"].GetBool());
+    document["t"] = false;
+    EXPECT_EQ(false, document["t"].GetBool());
+
+    EXPECT_TRUE(document["f"].IsBool());
+
+    EXPECT_TRUE(document["n"].IsNull());
+
+    EXPECT_TRUE(document["i"].IsNumber());
+    EXPECT_TRUE(document["i"].IsInt());
+
+    EXPECT_TRUE(document["pi"].IsNumber());
+    EXPECT_TRUE(document["pi"].IsDouble());
+
+    EXPECT_TRUE(document["a"].IsArray());
+    EXPECT_EQ(4, document["a"].Size());
+    Value& a = document["a"];
+    for (Value::ConstValueIterator itr = a.Begin(); itr != a.End(); ++itr) {
+        std::cout << "a = " << itr->GetInt() << std::endl << std::endl;
+    }
+    a.PushBack(456, document.GetAllocator());
+    EXPECT_EQ(5, document["a"].Size());
+}
+
+//struct config {
+//    int x;
+//    int y;
+//    std::string toJsonString() {
+//
+//    }
+//    bool fromJsonSting(std::string jsonString) {
+//
+//    }
+//};
+
+TEST(rapidjson, json2) {
+    Document d;
+    d.SetObject();
+
+    auto kitty = std::string("HELLLOOOO KITTY");
+    rapidjson::Value _kitty(kitty.c_str(), kitty.size(),d.GetAllocator());
+    d.AddMember("hello", _kitty, d.GetAllocator());
+    EXPECT_EQ("HELLLOOOO KITTY", std::string(d["hello"].GetString()));
+    auto n = 5;
+    d.AddMember("number", rapidjson::Value(n), d.GetAllocator());
+    EXPECT_EQ(5, d["number"].GetInt());
+
+    Document e;
+    e.SetObject();
+    e.AddMember("number1", rapidjson::Value(6), e.GetAllocator());
+    e.AddMember("number2", rapidjson::Value(7), e.GetAllocator());
+
+    d.AddMember("Inner", e, d.GetAllocator());
+
+    StringBuffer sb;
+    PrettyWriter<StringBuffer> writer(sb);
+    d.Accept(writer);    // Accept() traverses the DOM and generates Handler events.
+    std::cout << sb.GetString() << std::endl;
+}
+
+#include <tao/json.hpp>
+using namespace tao::json;
+TEST(toa, json) {
+    // create json
+
+    // 1.
+    const char json[] = " { \"hello\" : \"world\", \"t\" : true , \"f\" : false, \"n\": null, \"i\":123, \"pi\": 3.1416, \"a\":[1, 2, 3, 4] } ";
+    const tao::json::value v1 = tao::json::from_string(json);
+    std::cout << "json:" <<  tao::json::to_string( v1 ) << std::endl;
+
+    // 2.
+    const tao::json::value v2 = " { \"hello\" : \"world\", \"t\" : true , \"f\" : false, \"n\": null, \"i\":123, \"pi\": 3.1416, \"a\":[1, 2, 3, 4] } "_json;
+    std::cout << "json:" <<  tao::json::to_string( v1 ) << std::endl;
+
+    // 3.
+    const tao::json::value v3 = {
+            {"hello", "world"},
+            {"t", true},
+            {"f", false},
+            {"n", tao::json::null},
+            {"i", 123},
+            {"pi", 3.1426},
+            {"a", tao::json::value::array( { 1, 2, 3, 4 } )}
+    };
+    std::cout << "json:" <<  tao::json::to_string( v3 ) << std::endl;
+
+    // 4.
+    tao::json::value v4;
+    v4.emplace("hello", "world");
+    v4.emplace("t", true);
+    v4.emplace("f", false);
+    v4.emplace("n", tao::json::null);
+    v4.emplace("i", 123);
+    v4.emplace("pi", 3.1426);
+    v4.emplace("a", tao::json::value::array({1,2,3,4}));
+    std::cout << "json:" <<  tao::json::to_string( v4 ) << std::endl;
+
+    // setters arrays
+    tao::json::value a = tao::json::empty_array;
+    a.emplace_back(1);
+    a.emplace_back(2);
+    a.emplace_back(3);
+    a.emplace_back(4);
+
+    tao::json::value v5 = tao::json::empty_object;
+    v5["hello"] = "world";
+    v5["t"] = true;
+    v5["f"] = false;
+    v5["n"] = tao::json::null;
+    v5["i"] = 123;
+    v5["pi"] = 3.1426;
+    v5["a"] = a;
+    v5["b"]["x"] = 3.1426;          // cool
+    v5["b"]["y"] = "test";
+    std::cout << "json:" <<  tao::json::to_string( v5 ) << std::endl;
+
+    // getters
+    EXPECT_TRUE(v5["hello"].is_string());
+    EXPECT_EQ("world", v5["hello"]);
+
+    EXPECT_TRUE(v5["t"].is_boolean());
+    EXPECT_EQ(true, v5["t"]);
+    EXPECT_TRUE(v5["f"].is_boolean());
+    EXPECT_EQ(false, v5["f"]);
+
+    EXPECT_TRUE(v5["n"].is_null());
+    EXPECT_EQ( tao::json::null, v5["n"]);
+
+    EXPECT_TRUE(v5["i"].is_integer());
+    EXPECT_EQ(123, v5["i"]);
+    EXPECT_TRUE(v5["pi"].is_double());
+    EXPECT_EQ(3.1426, v5["pi"]);
+
+    EXPECT_EQ(true,  v5["a"].is_array());
+    EXPECT_EQ(1,  v5["a"][0].get_signed());
+    EXPECT_EQ(2,  v5["a"][1]);
+    EXPECT_EQ(3,  v5["a"][2]);
+    EXPECT_EQ(4,  v5["a"][3]);
+
+    // use array in for loop
+    if( v5["a"].is_array() ) {
+        for( const auto& i : v5["a"].get_array() ) {
+            std::cout << "element on line " << i << std::endl;
+        }
+    }
+
+    EXPECT_TRUE(v5["b"]["x"].is_double());
+    EXPECT_EQ(3.1426, v5["b"]["x"]);
+    EXPECT_TRUE(v5["b"]["y"].is_string());
+    EXPECT_EQ("test", v5["b"]["y"]);
+
+    // modify values
+    //  same type
+    v5["pi"] = 3.123;
+    EXPECT_TRUE(v5["pi"].is_double());
+    EXPECT_EQ(3.123, v5["pi"]);
+    //  different type
+    v5["pi"] = "3.123";
+    EXPECT_TRUE(v5["pi"].is_string());
+    EXPECT_EQ("3.123", v5["pi"]);
+
+    //
+    tao::json::value t = v5["i"];
+    EXPECT_EQ(128, t.get_signed() + 5);
+
+    // non existing keys
+    tao::json::value t2 = v5["asdf"];
+    EXPECT_TRUE(t2.empty());
+    EXPECT_FALSE(t2.is_signed());
+    EXPECT_THROW({
+        int val = t2.get_signed();
+    },  exception);
 }

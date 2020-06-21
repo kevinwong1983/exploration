@@ -14,6 +14,7 @@ std::unique_ptr<T> make_unique(Args&&... args)
     return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
+
 struct Hen
 {
     char const * m_name;
@@ -22,29 +23,33 @@ struct Hen
         std::cout<< "default constructor" << std::endl;
     }
 
+    ~Hen() {
+        std::cout<< "destuctor with name " << m_name  << " " << id_ << " " << eggs_ << std::endl;
+    }
+
     explicit Hen(char const * name) : m_name(name) {
         std::cout<< "explicit constuctor" << std::endl;
     }
 
+    // COPY CONSTUCTOR
     Hen(Hen const& other) : m_name(other.m_name) {
         std::cout<< "copy constuctor with name " << m_name << std::endl;
     }
 
+    // MOVE CONSTUCTOR
     Hen(Hen && other) : m_name(other.m_name) {
         other.m_name = "null";
         std::cout<< "move constuctor with name " << m_name << std::endl;
     }
 
-    ~Hen() {
-        std::cout<< "destuctor with name " << m_name  << " " << id_ << " " << eggs_ << std::endl;
-    }
-
+    // COPY ASSIGNMENT
     auto operator = (Hen const & other) -> Hen& {
         m_name = other.m_name;
         std::cout<< "copy assingment " << m_name << std::endl;
         return *this;
     }
 
+    // MOVE ASSIGNMENT
     auto operator = (Hen && other) -> Hen& {
         m_name = other.m_name;
         other.m_name = "null";
@@ -222,7 +227,7 @@ TEST(algorithms, simple_sort2) {
 
     // als je will dat de gesorteerd salaris ook de naam is gesorteerd -> do eerst een sort op naam, dan stable_sort op salaris
     std::sort(begin(staff), end(staff), [](auto&& a, auto&& b) {return a.getSortingName() <b.getSortingName();});
-    std::stable_sort(begin(staff), end(staff), [](auto&& a, auto&& b) {return a<b;}); // andere variable workden in zelfde volgorde gelaten
+    std::stable_sort(begin(staff), end(staff), [](auto&& a, auto&& b) {return a<b;}); // andere variable worden in zelfde volgorde gelaten
 }
 
 TEST(algorithms, find_largest) {
@@ -389,7 +394,9 @@ TEST(algorithms, remove3) {
     auto it = std::remove_if(v.begin(), v.end(), [](int i){  // remove all the odd numbers
         return (i%2);
     });
-    // it contains all iterators of odd values
+    // it still contains all iterators of odd values
+    EXPECT_EQ(v.size(), 9);
+
     v.erase(it, v.end());
     EXPECT_EQ(v.size(), 4);
     for (auto a: v){

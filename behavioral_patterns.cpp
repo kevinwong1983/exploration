@@ -17,14 +17,14 @@ std::unique_ptr<T> make_unique(Args&&... args)
 // Command pattern:
 // Single Interface named command, with a single method named execute
 // An object which represents an instruction to perform a particular action.
-// Contians all information necessary for action to be taken.
+// Contains all information necessary for action to be taken.
 // Motivation:
 // - Decoupling what is done (action) , from who does it (actors)
 // - Decoupling what is done (action) , from when its done
-// -Ordinary C++ statement are perishale
+// - Ordinary C++ statement are perishable
 // -- cannot undo a field assignment
 // -- cannot directly serialize a sequence of actions
-// -Want an object that represents an operation
+// - Want an object that represents an operation
 // -- Z should can it Y to Z
 // -- X should do Q
 // Uses: GUI commands, multi-level undo/redo, macro recording and more!
@@ -173,3 +173,15 @@ TEST(command, composite_commands) {
     commands.Undo();
     EXPECT_EQ(ba.balance_, 0);
 }
+
+
+// Strategy Pattern: simple pattern that allows us to separate high level policy from a set of low level details.
+// - FTP class (+sendFile) -> IPacketProtocollStrategy(+sendPackage) <|- X-model / Y-Modem / Z-Modem
+// - High level policy is dedicated through an interface to derivatives that Implement the low-level stuff.
+// - Simple “external” polymorphism…
+// - Advantage compared to Template Method pattern: 1. More flexible (reduce coupling) 2. Change-ability: Can be hot swapped. You can change out strategy at any time you want 3. Independent deploy-ability: High level policy is independent of low level implementation, however low level implementation is strongly dependent on high level policy! However in Strategy, both are independent from each other and can be deployed separately from each other.
+//
+// Template Method Pattern: solves the same problem as Strategy, but does it in a different way.
+// - FTP Abstract class (+sendFile +sendPackage=0) <|- X-model / Y-Modem / Z-Modem
+// - Used internal polymorphism
+// - Advantage compared to Strategy pattern: 1. ease of use, 2. faster and smaller,
