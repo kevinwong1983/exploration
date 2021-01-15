@@ -13,158 +13,228 @@
 #include <unordered_map>
 #include <stack>
 
-// Adapter
-// A construct which adapts an existing interface X to conform to the required interface Y.
+// Chain of responsibility
+// A chain of components who all get a chance to process a command or query, optionally having a default
+// processing implementation and an ability to terminate the processing chain.
 
-// Motivation
+// examples
+// 1. you click on a graphical element on a form
+// - button handles it, stop further processing
+// - click might go further in underlying group box
+// - click might go further in underlying window
+// 2. collectible card game - computer game
+// - creature has attack and defense values
+// - those values can be boosted by other cards
 
-// Classic implementation
+// Command Query Separation
+// Command = asking for an action or change (e.g. please set your attack value to 2)
+// Query = asking for information (e.g. please give me your attack value)
+// CQS = having separate means of sensing commands and queries: (antithetical to e.g. direct field access)
 
-TEST(adapter, stack_adapter) {
-    // stack is an adapter for other container that only exposes necessary functionality .
-    std::stack<int> s; // stack gebruik een dequeue als de default container.
-    s.push(123);
-    int x = s.top();
-    s.pop();
+struct Creature {
+    std::string name;
+    int attack, defence;
 
-    EXPECT_EQ(x, 123);
+    Creature(const std::string &name, const int attack, const int defence)
+            : name{name}, attack{attack}, defence{defence} {
+    }
 
-    //
-    std::stack<int, std::vector<int>> s2; //stack implemented with vector, I can do the same
-    s2.push(123);
-    int x2 = s.top();
-    s2.pop();
-    EXPECT_EQ(x2, 123);
+    friend std::ostream &operator<<(std::ostream &os, const Creature &obj) {
+        return os << "name:" << obj.name
+                  << " attack:" << obj.attack
+                  << " defence:" << obj.defence;
+    }
+};
 
-    // why not just use a vector?
-    // you want to communicate intent.
-    // you container should behave as a stack e.g.
-    // - should not change element in the middle of the stack.
-    // - should not iterate stack from begin to end
-}
+class CreatureModifier {
+    CreatureModifier* next = nullptr; // because its a chain, we have a next modifier
+protected:
+    Creature& creature;
 
-#include <boost/algorithm/string.hpp>
-
-class MyString
-{
-    std::string s_;
 public:
-    MyString(const std::string& cs) : s_(cs) {
+    explicit CreatureModifier(Creature& creature)
+    : creature(creature) {
     }
+    virtual ~CreatureModifier() = default;
 
-    MyString to_lower() const {
-        std::string ss{s_};
-        boost::to_lower(ss);
-        return {ss};
-    }
-
-    std::vector<std::string> split(const std::string& delimeter = " ") const {
-        std::vector<std::string> result;
-        boost::split(result, s_, boost::is_any_of(delimeter), boost::token_compress_on);
-        return result;
-    }
-};
-
-TEST(adapter, simple_custom_adapter) {
-
-    // boost has number of function that can operate on a string.
-    std::string s{"Hello world"};
-    boost::to_lower(s);
-    std::vector<std::string> parts;
-    boost::split(parts, s, boost::is_any_of(" "));
-
-    EXPECT_EQ(parts.size(), 2);
-    EXPECT_EQ("hello", parts[0]);
-    EXPECT_EQ("world", parts[1]);
-
-    for (const auto& p: parts){
-        std::cout << "<" << p << ">" << std::endl;
-    }
-
-    // I want to create a adapter to improve the discoverability of boost functions
-    MyString S{"Hello world"};
-    auto P = S.to_lower().split();
-    EXPECT_EQ( P.size(), 2);
-    EXPECT_EQ("hello", P[0]);
-    EXPECT_EQ("world", P[1]);
-}
-
-// implementing an Adapter is easy:
-// Determine the api you have and the api you need.
-// Create a component which aggregates (has a reference to, ...) the adaptee.
-// Intermediate repreosentation can pile up: use caching and other optimizations.
-
-// Drawing geometric objects on a window.
-struct Point {
-    int x, y;
-};
-
-struct Line {
-    Point start, end;
-};
-
-struct VectorObject {
-    virtual std::vector<Line>::iterator begin() = 0;
-    virtual std::vector<Line>::iterator end() = 0;
-};
-
-struct VectorRectangle : VectorObject {
-    VectorRectangle(int x, int y, int width, int height) {
-        lines_.emplace_back(Line{Point{x,y}, Point{x+width, y}});
-        lines_.emplace_back(Line{Point{x+width,y}, Point{x+width, y+height}});
-        lines_.emplace_back(Line{Point{x,y}, Point{x, y+height}});
-        lines_.emplace_back(Line{Point{x,y+height}, Point{x+width, y+height}});
-    }
-
-    std::vector<Line>::iterator begin() override{
-        return lines_.begin();
-    }
-    std::vector<Line>::iterator end() override {
-        return lines_.end();
-    }
-
-private:
-    std::vector<Line> lines_;
-};
-
-
-// I have objects in Vector form, but need to render them in raster (pixels) form
-// here we need an adapter that takes lines and change them in raster points
-
-std::vector<std::shared_ptr<VectorObject>> vectorObjects{ // these are vector points, but we need to render them in raster form
-    std::make_shared<VectorRectangle>(10,10,100,100),
-    std::make_shared<VectorRectangle>(30,30,60,60)
-};
-
-struct LineToPointAdapter {
-    typedef std::vector<Point> Points;
-
-    LineToPointAdapter(Line& line) {
-        int left = std::min(line.start.x, line.end.x);
-        int right = std::max(line.start.x, line.end.x);
-        int top = std::min(line.start.y, line.end.y);
-        int bottom = std::max(line.start.y, line.end.y);
-        int dx = right - left;
-        int dy = line.end.y - line.start.y;
-
-        if (dx == 0) { // isVertical
-            for (int y = top; y <= bottom; y++){
-                points_.emplace_back(Point{left, y});
-            }
-        } else if (dy == 0) { // isHorizontal
-            for (int x = left; x <= right; x++){
-                points_.emplace_back(Point{x, top});
-            }
+    void add(CreatureModifier* cm) {
+        if (next) {
+            next->add(cm);
+        } else {
+            next = cm;
         }
     }
 
-    virtual Points::iterator begin() {
-        return points_.begin();
+    virtual void handle() {
+        if (next) {
+            next -> handle();
+        }
+    }
+};
+
+// Modifiers that we want to have:
+// 1. Double the creature's attack/
+// 2. Increase defence by 1 unless power > 2.
+// 3. No bonuses can be applied to this creature.
+
+// 1
+class DoubleAttackModifier : public CreatureModifier {
+public:
+    explicit DoubleAttackModifier(Creature& creature)
+    : CreatureModifier(creature) {
     }
 
-    virtual Points::iterator end() {
-        return points_.end();
+    void handle() override {
+        creature.attack *= 2;
+        CreatureModifier::handle(); // invoke next in chain
     }
-private:
-    Points points_;
 };
+
+// 2
+class IncreaseDefenseModifier : public CreatureModifier {
+public:
+    explicit IncreaseDefenseModifier(Creature& creature)
+    : CreatureModifier(creature) {
+    }
+
+    void handle() override {
+        if (creature.attack <= 2){
+            creature.defence ++;
+        }
+        CreatureModifier::handle(); // invoke next in chain
+    }
+};
+
+// 3
+class NoBonusModifier : public CreatureModifier {
+public:
+    explicit NoBonusModifier(Creature& creature)
+    : CreatureModifier(creature){
+    }
+
+    void handle() override {
+        // because this is empty, all other modifiers after this one will not be invoked.
+    }
+};
+
+TEST(chian_of_responsibility, pointer_chain) {
+    Creature goblin {"Goblin", 1,1};
+    std::cout << goblin << std::endl;
+    // now we want to beable to use cards to make the gobins attack more powerfull;
+    // how can we do this in a oo fashion.
+
+    CreatureModifier root {goblin};
+    DoubleAttackModifier r1{goblin};
+    DoubleAttackModifier r1_2{goblin};
+    IncreaseDefenseModifier r2 {goblin};
+//    NoBonusModifier no{goblin};
+
+//    root.add(&no);
+    root.add(&r1);
+    root.add(&r1_2);
+    root.add(&r2);
+    root.handle();
+    // we now have build a chain, we can now take a goblin and modify its attack and defence
+    std::cout << goblin << std::endl;
+}
+
+// we typically want the modify the goblin temporary while the attack modifier exist. When it is out of scope you want
+// it to stop changing the goblin. Our modifiers change them permanently. What we want is that something query the attack value
+// and then allow the modifier to grab that query and modify it with additional bonuses. We can implement this with a
+// centralised component: broker
+
+#include <boost/signals2.hpp>
+using namespace boost::signals2;
+
+struct Query {
+    std::string creature_name;
+    enum Argument {attack, defense} argument;
+    int result;
+
+    Query (const std::string& creature_name, const Argument argument, const int result)
+    : creature_name{creature_name}, argument{argument}, result {result}{
+    }
+};
+
+struct Game{
+    boost::signals2::signal<void(Query&)> queries;
+};
+
+struct Creature2 {
+    Game& game;
+    int attack, defense;
+public:
+    std::string name;
+
+    Creature2(Game& game, const int attack, const int defense,  const std::string& name)
+    : game(game), attack(attack), defense(defense), name(name){
+    }
+
+    int GetAttack () const {
+        // how are we going to get not only the underlying goblins attack value.
+        // but also the many bonuses gets added to it? The answer is, we are going
+        // to do this by queries.
+        Query q {name, Query::Argument::attack, attack};
+        std::cout << __func__ << " 1 q.result = " << q.result << std::endl;
+        game.queries(q);
+        std::cout << __func__ << " 2 q.result = " << q.result << std::endl;
+        return q.result;
+    }
+
+    friend std::ostream& operator<< (std::ostream& os, const Creature2& obj) {
+         return os << " attack: " << obj.GetAttack() // HERE WE ARE USING GetAttack()
+         << " defense: " << obj.defense
+         << " name: " << obj.name;
+    }
+};
+
+class CreatureModifier2 {
+    Game& game;
+    Creature2& creature;
+public:
+    CreatureModifier2(Game& game, Creature2& creature)
+    : game {game},
+    creature{creature} {
+    }
+
+    virtual ~CreatureModifier2 () = default;
+};
+
+class DoubleAttackModifier2 : public CreatureModifier2 {
+    connection conn;
+public:
+    DoubleAttackModifier2(Game& game, Creature2& creature)
+    : CreatureModifier2(game, creature){
+        conn = game.queries.connect([&](Query& q){
+            if (q.creature_name == creature.name &&
+            q.argument == Query::Argument::attack) {
+                q.result *= 2;
+            }
+            std::cout << __func__ << " q.result = " << q.result << std::endl;
+        });
+    }
+
+    virtual ~DoubleAttackModifier2(){
+        conn.disconnect();  // disconnects the signal when going out of scope.
+    }
+};
+
+TEST(chian_of_responsibility, broker_chain) {
+    Game game;
+    Creature2 goblin {game, 2,2, "Strong Goblin"};
+    std::cout << goblin << std::endl;
+
+    {
+        DoubleAttackModifier2 dam {game, goblin};
+        std::cout << goblin << std::endl;
+    }
+
+
+    // when DoubleAttackModifier2 is out scope, it back to the old situation
+    std::cout << goblin << std::endl;
+}
+
+// Summary
+// Chain of responsibility can be implemented as a pointer chain or a centralized construct
+// Enlist objects in the chain, possibly controlling their order
+// Remove objects from chain when no longer applicable (e.g. in its own destructor)
