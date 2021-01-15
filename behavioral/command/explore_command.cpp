@@ -15,17 +15,18 @@ std::unique_ptr<T> make_unique(Args&&... args)
 }
 
 // Command pattern:
-// Single Interface named command, with a single method named execute
-// An object which represents an instruction to perform a particular action.
+// - Single Interface named command, with a single method named execute
+// - An object which represents an instruction to perform a particular action.
 // Contains all information necessary for action to be taken.
+
 // Motivation:
 // - Decoupling what is done (action) , from who does it (actors)
 // - Decoupling what is done (action) , from when its done
 // - Ordinary C++ statement are perishable
 // -- cannot undo a field assignment
 // -- cannot directly serialize a sequence of actions
-// - Want an object that represents an operation
-// -- Z should can it Y to Z
+// - We want an object that represents an operation
+// -- X should change its Y to Z
 // -- X should do Q
 // Uses: GUI commands, multi-level undo/redo, macro recording and more!
 

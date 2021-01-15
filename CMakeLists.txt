@@ -17,14 +17,19 @@ file(GLOB_RECURSE SOURCES
         "language_features.cpp"
         "explore_cpp.cpp"
         "behavioral_patterns.cpp"
-        "creational_patterns.cpp"
         "concurrency.cpp"
         "solid.cpp"
         "solid.cpp"
         "gmock.cpp"
-        "factories/*.*")
+        "templates/*.*"
+        "solid/*.*"
+        "creational_patterns/*/*.*"
+        "structural_patterns/*/*.*"
+        "behavioral/*/*.*"
+        "json.cpp"
+        "cherno.cpp")
 
-add_executable(${PROJECT_NAME} ${SOURCES} factories/animalMock.h factories/animalFactory.cpp factories/animalFactory.h)
+add_executable(${PROJECT_NAME} ${SOURCES} behavioral/mediator/ChatRoom.cpp behavioral/mediator/ChatRoom.h behavioral/mediator/Person.cpp behavioral/mediator/Person.cpp behavioral/mediator/Person.h)
 
 target_link_libraries(${PROJECT_NAME}
         dl
@@ -35,6 +40,7 @@ target_link_libraries(${PROJECT_NAME}
         boost_system
         boost_date_time
         boost_serialization
+        boost_regex
         taocpp::json)
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${Boost_INCLUDE_DIRS} .)

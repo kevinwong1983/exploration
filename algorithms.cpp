@@ -143,6 +143,14 @@ TEST(algorithms, count_none_any_all) {
     EXPECT_FALSE(none);
 }
 
+TEST(algorithms, count_none_any_all_on_empty_vector) {
+    auto v = std::vector<int> {};
+    auto any = std::any_of(begin(v),end(v),[](auto&& v_local){
+        return v_local == 2;
+    });
+    EXPECT_FALSE(any);
+}
+
 TEST(algorithms, find) {
     auto v = std::vector<int> {2,4,6,6,1,3,-2,0,11,2,3,2,4,4,2,4};
 
@@ -174,6 +182,26 @@ TEST(algorithms, find) {
 
     result = std::search_n(begin(v), end(v), 2, 4); // two times a 4
     result = std::adjacent_find(begin(v), end(v));
+}
+
+TEST(algorithms, find_any) {
+    // exist at least one
+    std::vector<int> v{0,0,0,0,0,0,0,0,1,0,0,0};
+    auto it = find_if(std::begin(v), std::end(v), [](auto&& i){
+        return i > 0;
+    });
+    EXPECT_NE(it, end(v));
+
+    // exist non
+    std::vector<int> v2{0,0,0,0,0,0,0,0,0,0,0,0};
+    auto it2 = find_if(std::begin(v2), std::end(v2), [](auto&& i){
+        return i > 0;
+    });
+    EXPECT_EQ(it2, end(v2));
+
+    if ( find_if(std::begin(v2), std::end(v2), [](auto&& i){ return i > 0; }) == end(v)) {
+        EXPECT_TRUE(false);
+    }
 }
 
 TEST(algorithms, find_all_elements) {

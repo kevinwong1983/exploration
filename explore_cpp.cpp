@@ -174,6 +174,7 @@ TEST(promises, recursive_periodic_timers) {
         if ((*count) > 0 && (e == boost::system::errc::success)){
             (*count)--;
             t->expires_at(t->expiry() + boost::asio::chrono::seconds(2)); // now plus 2 sec
+            // !!! hier gebruiken we boost::bind omdat we boost::asio::placeholders::error gebruiken. als je std::placeholder::_1 gebruikt, kan je ook std::bind doen
             t->async_wait(boost::bind(print, boost::asio::placeholders::error, t, count));
         }
     };
@@ -182,6 +183,30 @@ TEST(promises, recursive_periodic_timers) {
 
     ioc.run();
     EXPECT_EQ(*count, 0);
+}
+
+TEST(promises, recursive_periodic_timers_usingstdbind) {
+    boost::asio::io_context ioc;
+    auto count = std::make_shared<int>(3);
+    auto timer = std::make_shared<boost::asio::steady_timer>(ioc, boost::asio::chrono::seconds(3));
+
+    std::function<void(boost::system::error_code, std::shared_ptr<boost::asio::steady_timer>, std::shared_ptr<int>)> print =
+            [&print](const boost::system::error_code &e, std::shared_ptr<boost::asio::steady_timer> t, std::shared_ptr<int> c) {
+        std::cout << "hello" << std::endl;
+        if (e == boost::system::errc::success && *c > 0) {
+            (*c)--;
+            t->expires_at(t->expiry() + boost::asio::chrono::seconds(2));
+            t->async_wait(std::bind(print, std::placeholders::_1, t, c));
+        }
+    };
+
+    timer->async_wait(std::bind(print, std::placeholders::_1, timer, count));
+    auto thread = std::thread([&ioc](){
+        ioc.run();
+    });
+
+    EXPECT_EQ(*count, 0);
+    thread.join();
 }
 
 int add(int a, int b) {
@@ -235,7 +260,7 @@ public:
 TEST(smartpointers, unique_pointer) {
     //unique pointer has preference to shared pointers!
     {
-        std::unique_ptr<Entity> entity_1(new Entity); // dit word niet gebruikt door exception safety, als er exception plaats find in the constructor heb je een dangling pointer
+        std::unique_ptr<Entity> entity_1(new Entity); // !!! dit word niet gebruikt door exception safety, als er exception plaats find in the constructor heb je een dangling pointer
 
         std::unique_ptr<Entity> entity_2 = std::make_unique<Entity>();
         // std::unique_ptr<Entity> e1 = entity;
@@ -246,7 +271,7 @@ TEST(smartpointers, unique_pointer) {
 
 TEST(smartpointers, shared_pointer) {
     // unique pointer has preference to shared pointers!
-    // only use shared pointer is you cannot use unique pointers
+    // only use shared pointer if you cannot use unique pointers
     {
         std::shared_ptr<Entity> e1;
         EXPECT_EQ(0, e1.use_count());
@@ -294,7 +319,7 @@ TEST(Lamda, shared_pointer_and_lamda) {
                 EXPECT_EQ(shared.use_count(), 2);
             }
             lamda_captured(2);
-            EXPECT_EQ(2, shared.use_count());
+            EXPECT_EQ(shared.use_count(), 2);
         }
         lamda_captured(1);
     }
@@ -521,16 +546,16 @@ TEST(simple, simple1) {
 
 #include <boost/signals2.hpp>
 
-int bind_free_function_arg = 0;
-void bind_free_function() {
+int free_function_arg = 0;
+void free_function() {
     std::cout<<"bind_function"<<std::endl;
-    bind_free_function_arg ++;
+    free_function_arg ++;
 }
-void bind_free_function_with_arg(int& ref) {
+void free_function_with_arg(int& ref) {
     std::cout<<"bind_function_with_arg"<<std::endl;
     ref ++;
 }
-int bind_free_function_with_arg3(int a, int b, int c) {
+int free_function_with_arg3(int a, int b, int c) {
     std::cout<<"bind_function_with_arg"<<std::endl;
     return a-b-c;
 }
@@ -561,7 +586,8 @@ public:
 
 TEST(dummy, binding) {
     // understanding the return value of a bind... its just a std::function<>
-    std::function<int(int,int)> binded_function = std::bind(bind_free_function_with_arg3, std::placeholders::_2, 3, std::placeholders::_1);
+    std::function<int(int,int)> binded_function = std::bind(free_function_with_arg3, std::placeholders::_2, 3,
+                                                            std::placeholders::_1);
     auto val = binded_function(1, 10); // 1 = c, 10 = a, 3 = b
     EXPECT_EQ(6, val);
 
@@ -576,30 +602,30 @@ TEST(dummy, binding) {
     // use a free function as a callback
     // connection a free function to a signal
     auto signal_free_normal = boost::signals2::signal<void()>();
-    signal_free_normal.connect(bind_free_function);
+    signal_free_normal.connect(free_function);
     signal_free_normal();
-    EXPECT_EQ(1, bind_free_function_arg);
+    EXPECT_EQ(1, free_function_arg);
 
     // use a free function with args as a callback
     // connecting a binded free function to a signal .. if without arguments, its the same as previous
     auto signal_free_bind = boost::signals2::signal<void()>();
-    auto /* std::function<void()> */ a = std::bind(bind_free_function);
+    auto /* std::function<void()> */ a = std::bind(free_function);
     signal_free_bind.connect(a);
     signal_free_bind();
-    EXPECT_EQ(2, bind_free_function_arg);
+    EXPECT_EQ(2, free_function_arg);
 
     // use a free function with args as a callback
     // connection a free function with args to a signal
     int count = 0;
     auto signal_free_with_arg_normal = boost::signals2::signal<void(int&)>();
-    signal_free_with_arg_normal.connect(bind_free_function_with_arg);
+    signal_free_with_arg_normal.connect(free_function_with_arg);
     signal_free_with_arg_normal(count); // this has benefit that I can signal with a argument
     EXPECT_EQ(1,count);
 
     // use a binded free function with args as a callback
     // connection a binded free function with args to a signal
     auto signal_free_with_arg_bind = boost::signals2::signal<void()>();
-    auto b = std::bind(bind_free_function_with_arg, std::ref(count)); // here I binded the argument
+    auto b = std::bind(free_function_with_arg, std::ref(count)); // here I binded the argument
     signal_free_with_arg_bind.connect(b);
     signal_free_with_arg_bind(); // here I dont have to give argument
     EXPECT_EQ(2,count);
@@ -960,22 +986,22 @@ void SetValue3(const int& value){
 }
 TEST(dummy, lvalue_rvalue_rules) {
     // lvalue on left of equal sign, rvalue on right of equal sign -> however this does not always apply
-    int i = 10; // i is variable with location in memory, 10 is value wich has no storage or location.
+    int i = 10; // i is variable with location in memory, 10 is value which has no storage or location.
 
     // you cannot assign anything to an rvalue e.g.
     // 10 = i;
 
     int j = Get_LValue();   // GetValue() return rvalue (which is a temporay value with not location or storage)
-    // Get_LValue() = 5;    // assingment of rvalue does not work!
-    Get_LValue() = 5;       // asignment of lvalue works!
+    // Get_LValue() = 5;    // assignment of rvalue does not work!
+    Get_LValue() = 5;       // assignment of lvalue works!
 
     SetValue1(10);    // assignment of rvalue, this rvalue will be used to create an lvalue when called
-    SetValue1(i);           // assingment of lvalue
+    SetValue1(i);           // assignment of lvalue
 
-    // we van easily see which on is temp. value and which one is not
+    // we can easily see which on is temp. value and which one is not
     // RULE: you cannot take a lvalue ref from an rvalue;   i.e. you can only have lvalue ref of an lvalue
 
-    // SetValue2(10);       // will not work. you cannot take lvaue ref of rvalue
+    // SetValue2(10);       // will not work. you cannot take lvalue ref of rvalue
     // int& a = 10;         // also gives error: non-const lvalue reference to type 'int' cannot bind to a temporary of type 'int'
     SetValue2(i);           // however assingment of lvalue works
 
@@ -1036,44 +1062,44 @@ public:
     String(const char* string) {
         std::cout << __func__ << " created" << std::endl;
 
-        m_Size = strlen(string);
-        m_Data = new char[m_Size];
-        memcpy(m_Data, string, m_Size);
+        size_ = strlen(string);
+        data_ = new char[size_];
+        memcpy(data_, string, size_);
     }
     String(const String& other) {
         std::cout << __func__ << " copied" << std::endl;
 
-        m_Size = other.m_Size;
-        m_Data = new char[m_Size];
-        memcpy(m_Data, other.m_Data, m_Size);
+        size_ = other.size_;
+        data_ = new char[size_];
+        memcpy(data_, other.data_, size_);
     }
 
     String (String&& other) noexcept {
         std::cout << __func__ << " moved" << std::endl;
         // take ownership of other's data
-        m_Size = other.m_Size;
-        m_Data = other.m_Data;
+        size_ = other.size_;
+        data_ = other.data_;
 
         //create a hollow object from other
-        other.m_Size = 0;
-        other.m_Data = nullptr;
+        other.size_ = 0;
+        other.data_ = nullptr;
     }
 
     ~String() {
         std::cout << __func__ << " destroyed" << std::endl;
 
-        delete m_Data;
+        delete data_;
     }
 
     void Print() {
-        for (uint32_t i = 0; i < m_Size; i++) {
-            std::cout << m_Data[i];
+        for (uint32_t i = 0; i < size_; i++) {
+            std::cout << data_[i];
         }
         std::cout << std::endl;
     }
 private:
-    char* m_Data;
-    uint32_t m_Size;
+    char* data_;
+    uint32_t size_;
 
 };
 
@@ -1101,199 +1127,103 @@ TEST(dummy, move_semantics) {
     entity.PrintName();
 
     // we are able to create/allocaed here and then MOVE it.
-    //
-
 }
 
-#include "rapidjson/document.h"     // rapidjson's DOM-style API
-#include "rapidjson/prettywriter.h" // for stringify JSON
-#include <cstdio>
+#include <numeric>
 
-using namespace rapidjson;
-using namespace std;
+TEST(core_guidelines, P_3) {    // express your intent
+    std::vector<int> numbers{4, 5, 6, 9, -2, 27, 14, 99};
 
-TEST(rapidjson, json) {
-    const char json[] = " { \"hello\" : \"world\", \"t\" : true , \"f\" : false, \"n\": null, \"i\":123, \"pi\": 3.1416, \"a\":[1, 2, 3, 4] } ";
-
-    Document document;
-    EXPECT_FALSE(document.Parse(json).HasParseError());
-
-    EXPECT_TRUE(document["hello"].IsString());
-    EXPECT_EQ("world", document["hello"].GetString());
-    document["hello"] = "kitty";
-    EXPECT_EQ("kitty", document["hello"].GetString());
-
-    EXPECT_TRUE(document["t"].IsBool());
-    EXPECT_EQ(true, document["t"].GetBool());
-    document["t"] = false;
-    EXPECT_EQ(false, document["t"].GetBool());
-
-    EXPECT_TRUE(document["f"].IsBool());
-
-    EXPECT_TRUE(document["n"].IsNull());
-
-    EXPECT_TRUE(document["i"].IsNumber());
-    EXPECT_TRUE(document["i"].IsInt());
-
-    EXPECT_TRUE(document["pi"].IsNumber());
-    EXPECT_TRUE(document["pi"].IsDouble());
-
-    EXPECT_TRUE(document["a"].IsArray());
-    EXPECT_EQ(4, document["a"].Size());
-    Value& a = document["a"];
-    for (Value::ConstValueIterator itr = a.Begin(); itr != a.End(); ++itr) {
-        std::cout << "a = " << itr->GetInt() << std::endl << std::endl;
+    // this does not show intent, only a for loop. A reviewer never knows it is doing what you wanted it to do.
+    int total = 0;                                  // classic loop
+    for (int i = 0; i < numbers.size(); i++) {
+        total += numbers[i];
     }
-    a.PushBack(456, document.GetAllocator());
-    EXPECT_EQ(5, document["a"].Size());
+    EXPECT_EQ(162, total);
+    // here we need to check number of things:
+    // 1. i starts from 0,
+    // 2. i smaller than appropriate number,
+    // 3. i ++ in loop or in for etc
+    // 4. does total start from 0
+
+    // already better but still does not show intent:
+    total = 0;
+    for (int element : numbers) {                   // range loop
+        total += element;
+    }
+    EXPECT_EQ(162, total);
+
+    // also better but still does not show intent:
+    total = 0;
+    std::for_each(begin(numbers), end(numbers), [&total](int element){
+        total += element;
+    });
+    EXPECT_EQ(162, total);
+
+    // finally this shows intent:
+    total = std::accumulate(begin(numbers), end(numbers), 0);
+    EXPECT_EQ(162, total);
 }
 
-//struct config {
-//    int x;
-//    int y;
-//    std::string toJsonString() {
-//
-//    }
-//    bool fromJsonSting(std::string jsonString) {
-//
-//    }
-//};
+class Account {
+public:
+    bool Deposite(double dollars) {
+        balanceInPennies += static_cast<int>(dollars * 100);
+        return true;
+    }
 
-TEST(rapidjson, json2) {
-    Document d;
-    d.SetObject();
-
-    auto kitty = std::string("HELLLOOOO KITTY");
-    rapidjson::Value _kitty(kitty.c_str(), kitty.size(),d.GetAllocator());
-    d.AddMember("hello", _kitty, d.GetAllocator());
-    EXPECT_EQ("HELLLOOOO KITTY", std::string(d["hello"].GetString()));
-    auto n = 5;
-    d.AddMember("number", rapidjson::Value(n), d.GetAllocator());
-    EXPECT_EQ(5, d["number"].GetInt());
-
-    Document e;
-    e.SetObject();
-    e.AddMember("number1", rapidjson::Value(6), e.GetAllocator());
-    e.AddMember("number2", rapidjson::Value(7), e.GetAllocator());
-
-    d.AddMember("Inner", e, d.GetAllocator());
-
-    StringBuffer sb;
-    PrettyWriter<StringBuffer> writer(sb);
-    d.Accept(writer);    // Accept() traverses the DOM and generates Handler events.
-    std::cout << sb.GetString() << std::endl;
-}
-
-#include <tao/json.hpp>
-using namespace tao::json;
-TEST(toa, json) {
-    // create json
-
-    // 1.
-    const char json[] = " { \"hello\" : \"world\", \"t\" : true , \"f\" : false, \"n\": null, \"i\":123, \"pi\": 3.1416, \"a\":[1, 2, 3, 4] } ";
-    const tao::json::value v1 = tao::json::from_string(json);
-    std::cout << "json:" <<  tao::json::to_string( v1 ) << std::endl;
-
-    // 2.
-    const tao::json::value v2 = " { \"hello\" : \"world\", \"t\" : true , \"f\" : false, \"n\": null, \"i\":123, \"pi\": 3.1416, \"a\":[1, 2, 3, 4] } "_json;
-    std::cout << "json:" <<  tao::json::to_string( v1 ) << std::endl;
-
-    // 3.
-    const tao::json::value v3 = {
-            {"hello", "world"},
-            {"t", true},
-            {"f", false},
-            {"n", tao::json::null},
-            {"i", 123},
-            {"pi", 3.1426},
-            {"a", tao::json::value::array( { 1, 2, 3, 4 } )}
-    };
-    std::cout << "json:" <<  tao::json::to_string( v3 ) << std::endl;
-
-    // 4.
-    tao::json::value v4;
-    v4.emplace("hello", "world");
-    v4.emplace("t", true);
-    v4.emplace("f", false);
-    v4.emplace("n", tao::json::null);
-    v4.emplace("i", 123);
-    v4.emplace("pi", 3.1426);
-    v4.emplace("a", tao::json::value::array({1,2,3,4}));
-    std::cout << "json:" <<  tao::json::to_string( v4 ) << std::endl;
-
-    // setters arrays
-    tao::json::value a = tao::json::empty_array;
-    a.emplace_back(1);
-    a.emplace_back(2);
-    a.emplace_back(3);
-    a.emplace_back(4);
-
-    tao::json::value v5 = tao::json::empty_object;
-    v5["hello"] = "world";
-    v5["t"] = true;
-    v5["f"] = false;
-    v5["n"] = tao::json::null;
-    v5["i"] = 123;
-    v5["pi"] = 3.1426;
-    v5["a"] = a;
-    v5["b"]["x"] = 3.1426;          // cool
-    v5["b"]["y"] = "test";
-    std::cout << "json:" <<  tao::json::to_string( v5 ) << std::endl;
-
-    // getters
-    EXPECT_TRUE(v5["hello"].is_string());
-    EXPECT_EQ("world", v5["hello"]);
-
-    EXPECT_TRUE(v5["t"].is_boolean());
-    EXPECT_EQ(true, v5["t"]);
-    EXPECT_TRUE(v5["f"].is_boolean());
-    EXPECT_EQ(false, v5["f"]);
-
-    EXPECT_TRUE(v5["n"].is_null());
-    EXPECT_EQ( tao::json::null, v5["n"]);
-
-    EXPECT_TRUE(v5["i"].is_integer());
-    EXPECT_EQ(123, v5["i"]);
-    EXPECT_TRUE(v5["pi"].is_double());
-    EXPECT_EQ(3.1426, v5["pi"]);
-
-    EXPECT_EQ(true,  v5["a"].is_array());
-    EXPECT_EQ(1,  v5["a"][0].get_signed());
-    EXPECT_EQ(2,  v5["a"][1]);
-    EXPECT_EQ(3,  v5["a"][2]);
-    EXPECT_EQ(4,  v5["a"][3]);
-
-    // use array in for loop
-    if( v5["a"].is_array() ) {
-        for( const auto& i : v5["a"].get_array() ) {
-            std::cout << "element on line " << i << std::endl;
+    bool Withdraw(double dollars) {
+        if (balanceInPennies < static_cast<int>(dollars * 100)) {
+            return false;
         }
+
+        balanceInPennies -= static_cast<int>( dollars * 100);
+        return true;
     }
+    double getBalance() const {
+        serviceChargesInPennies = 700; // actually a more complicated calculation
+        // error: Cannot assign to non-static data member
+        // within const member function 'getBalance' member
+        // function 'Account::getBalance' is declared const here
 
-    EXPECT_TRUE(v5["b"]["x"].is_double());
-    EXPECT_EQ(3.1426, v5["b"]["x"]);
-    EXPECT_TRUE(v5["b"]["y"].is_string());
-    EXPECT_EQ("test", v5["b"]["y"]);
+        // I can cast away const:
+        // never do this! this is a lie.
+        // Account* This = const_cast<Account*> (this);
+        // This->serviceChargesInPennies = 700; // act
 
-    // modify values
-    //  same type
-    v5["pi"] = 3.123;
-    EXPECT_TRUE(v5["pi"].is_double());
-    EXPECT_EQ(3.123, v5["pi"]);
-    //  different type
-    v5["pi"] = "3.123";
-    EXPECT_TRUE(v5["pi"].is_string());
-    EXPECT_EQ("3.123", v5["pi"]);
+        // what we should do is make serviceChargesInPennies mutable
 
-    //
-    tao::json::value t = v5["i"];
-    EXPECT_EQ(128, t.get_signed() + 5);
+        return (balanceInPennies-serviceChargesInPennies) / 100;
+    }
+private:
+    int balanceInPennies = 0;
+    int mutable serviceChargesInPennies = 0; // mutable keyword examps this variable to be changed in const functions
+};
 
-    // non existing keys
-    tao::json::value t2 = v5["asdf"];
-    EXPECT_TRUE(t2.empty());
-    EXPECT_FALSE(t2.is_signed());
-    EXPECT_THROW({
-        int val = t2.get_signed();
-    },  exception);
+TEST(core_guidelines, ES_50) { // never cast away const, instead use mutable
+    Account a;
+    a.Deposite(10);
+    EXPECT_EQ(3,a.getBalance());
+}
+
+class Manupilation {
+public:
+    Manupilation(Account* a) : account(a) {};
+    bool takeMoney(double dollars) {
+        if (account) {      // null check
+            return account->Deposite(dollars);
+        }
+        return false;
+    }
+    double confirmAssets() const {
+        if (account) {      // null check
+            return account->getBalance();
+        }
+        return 0.0; // this is wierd
+    }
+private:
+    Account* account;
+};
+
+TEST(core_guidelines, I_12) { // declare a pointer that must not be null as not_null
 }

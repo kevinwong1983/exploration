@@ -9,31 +9,33 @@
 #include <unordered_map>
 
 template<typename T, typename... Args>
-std::unique_ptr<T> make_unique(Args&&... args)
-{
+std::unique_ptr<T> make_unique(Args &&... args) {
     return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
 
 #include <boost/optional.hpp>
+
 class Address {
 public:
-    Address (std::string street_name): street_name_(street_name){};
+    Address(std::string street_name) : street_name_(street_name) {};
     std::string street_name_;
 };
 
 class Person {
 public:
-    Person(std::string first_name, std::string last_name): first_name_(first_name), last_name_(last_name) {};
-    boost::optional<std::string> GetMiddleName() const {return middle_name_;};
-    void optional_in_function (boost::optional<std::string> arg = boost::none){
+    Person(std::string first_name, std::string last_name) : first_name_(first_name), last_name_(last_name) {};
+
+    boost::optional<std::string> GetMiddleName() const { return middle_name_; };
+
+    void optional_in_function(boost::optional<std::string> arg = boost::none) {
         if (arg) {
-            std::cout<< "args: " << *arg <<std::endl;
-        }
-        else {
-            std::cout<< "no args "<<std::endl;
+            std::cout << "args: " << *arg << std::endl;
+        } else {
+            std::cout << "no args " << std::endl;
         }
     }
+
     std::string first_name_;
     std::string last_name_;
     boost::optional<std::string> middle_name_;
@@ -62,7 +64,7 @@ TEST(boost_lib, optional) {
     }
 
     EXPECT_FALSE(p.address_);
-    p.address_ = Address ("Baker Streeth");
+    p.address_ = Address("Baker Streeth");
     EXPECT_TRUE(p.address_);
     if (p.address_) {
         std::cout << p.address_->street_name_ << std::endl;
@@ -110,20 +112,20 @@ TEST(boost_lib, any) {
     try {
         int b = boost::any_cast<int>(y[1]);
     }
-    catch (const boost::bad_any_cast& e) {
-        std::cout << "wrong type: " << e.what() <<std::endl;
+    catch (const boost::bad_any_cast &e) {
+        std::cout << "wrong type: " << e.what() << std::endl;
     }
 
     // Second method: Passing a pointer to any will return
     //-> A pointer to the contained object if the type match OR return null ptr otherwise
-    int* c = boost::any_cast<int>(&y[0]);
+    int *c = boost::any_cast<int>(&y[0]);
     EXPECT_NE(nullptr, c);
     EXPECT_EQ(42, *c);
 
-    int* d = boost::any_cast<int>(&y[1]);   // this will give an null pointer
+    int *d = boost::any_cast<int>(&y[1]);   // this will give an null pointer
     EXPECT_EQ(nullptr, d);
 
-    const char** e = boost::any_cast<const char*>(&y[1]);
+    const char **e = boost::any_cast<const char *>(&y[1]);
     EXPECT_EQ("life", *e);
 }
 
@@ -158,14 +160,15 @@ TEST(boost_lib, any) {
 
 #include <boost/signals2.hpp>
 
-template<typename T> class INotifyPropertyChanged {
+template<typename T>
+class INotifyPropertyChanged {
 public:
-    boost::signals2::signal<void(const T*, std::string, int)> PropertyChanged;
+    boost::signals2::signal<void(const T *, std::string, int)> PropertyChanged;
 };
 
-class Player: public INotifyPropertyChanged<Player>{
+class Player : public INotifyPropertyChanged<Player> {
 public:
-    Player(std::string name): name_(name), number_of_goals(0){}
+    Player(std::string name) : name_(name), number_of_goals(0) {}
 
     std::string name_;
     int age_;
@@ -177,11 +180,12 @@ public:
     boost::signals2::signal<void(std::string, int)> Scores_with_name_and_goals;
 
     void Scores_function() {
-        number_of_goals ++;
+        number_of_goals++;
         Scores_with_name_and_goals(name_, number_of_goals);
     }
 
-    int GetAge() {return age_;}
+    int GetAge() { return age_; }
+
     void SetAge(int age) {
         if (age == age_) return;
 
@@ -197,30 +201,30 @@ TEST(boost_lib, Signals2) {
     EXPECT_TRUE(p.Scores.empty());
 
     // connect signal with multiple slots
-    auto a = p.Scores.connect([&scored](){
+    auto a = p.Scores.connect([&scored]() {
         std::cout << "well done 1" << std::endl;
-        scored ++;
+        scored++;
     });
     EXPECT_EQ(1, p.Scores.num_slots());
 
-    p.Scores.connect([&scored](){
+    p.Scores.connect([&scored]() {
         std::cout << "well done 2" << std::endl;
-        scored ++;
+        scored++;
     });
     EXPECT_EQ(2, p.Scores.num_slots());
 
     p.Scores();
-    EXPECT_EQ(2 ,scored);
+    EXPECT_EQ(2, scored);
 
     // connect signal with a slot
-    auto b = p.Scores_with_name.connect([&scored](std::string name){
+    auto b = p.Scores_with_name.connect([&scored](std::string name) {
         std::cout << "well done: " << name << std::endl;
-        EXPECT_EQ("Jan" ,name);
-        scored ++;
+        EXPECT_EQ("Jan", name);
+        scored++;
     });
 
     p.Scores_with_name(p.name_);
-    EXPECT_EQ(3 ,scored);
+    EXPECT_EQ(3, scored);
 
     //disconnect signal from all slots
     p.Scores.disconnect_all_slots();
@@ -228,27 +232,27 @@ TEST(boost_lib, Signals2) {
 
     p.Scores_with_name(p.name_);
     p.Scores();
-    EXPECT_EQ(3 ,scored); // not increased
+    EXPECT_EQ(3, scored); // not increased
 
     ////////////////////////////////
 
     auto c = p.Scores_with_name_and_goals.connect([&scored](std::string name, int count) {
         std::cout << "player " << name << " has scored " << count << std::endl;
-        scored ++;
+        scored++;
     });
     p.Scores_function();
-    EXPECT_EQ(4 ,scored);
+    EXPECT_EQ(4, scored);
     p.Scores_function();
-    EXPECT_EQ(5 ,scored);
+    EXPECT_EQ(5, scored);
 
     {
         boost::signals2::shared_connection_block d(c);
         p.Scores_function();
-        EXPECT_EQ(5 ,scored); // connection blocked when block is in scope
+        EXPECT_EQ(5, scored); // connection blocked when block is in scope
     }
 
     p.Scores_function();
-    EXPECT_EQ(6 ,scored);
+    EXPECT_EQ(6, scored);
 }
 
 // slots can have priority
@@ -256,10 +260,10 @@ TEST(boost_lib, Signals2_custumized_Prio) {
     boost::signals2::signal<void()> s;
 
     // prio
-    s.connect(1,[](){
+    s.connect(1, []() {
         std::cout << "first" << std::endl;
     });
-    s.connect(0,[](){
+    s.connect(0, []() {
         std::cout << "second" << std::endl;
     });
 
@@ -280,13 +284,13 @@ TEST(boost_lib, Signals2_custumized_Scope) {
     s.connect(third); // connect function
     EXPECT_EQ(1, s.num_slots());
     {
-        auto c = s.connect(1,[](){                // c = connection
+        auto c = s.connect(1, []() {                // c = connection
             std::cout << "first" << std::endl;
         });
         boost::signals2::scoped_connection sc(c);           //scopes your connection
         EXPECT_EQ(2, s.num_slots());
 
-        s.connect(0,[](){                        // connection is not scoped
+        s.connect(0, []() {                        // connection is not scoped
             std::cout << "second" << std::endl;
         });
         EXPECT_EQ(3, s.num_slots());
@@ -309,8 +313,8 @@ TEST(boost_lib, Signals2_custumized_Scope2) {
     {
         boost::signals2::scoped_connection sc;
         {
-            sc = s.connect([&i](){
-                i ++;
+            sc = s.connect([&i]() {
+                i++;
             });
             s();
             EXPECT_EQ(1, i);
@@ -322,13 +326,13 @@ TEST(boost_lib, Signals2_custumized_Scope2) {
     EXPECT_EQ(2, i);
 }
 
-class Coach
-{
+class Coach {
 public:
-    void PlayerScored(){
+    void PlayerScored() {
         std::cout << "well done, " << std::endl;
     }
-    void PlayerScoredWithName(std::string name){
+
+    void PlayerScoredWithName(std::string name) {
         std::cout << "well done, " << name << std::endl;
     }
 };
@@ -348,21 +352,24 @@ TEST(boost_lib, Signals2_customized_methods) {
 
 class subscriber {
 public:
-    subscriber(std::string name): name_(name){}
-    void timerHandler(){
-        if (name_){
-            std::cout<< "hello, my name is: " << *name_ << std::endl;
+    subscriber(std::string name) : name_(name) {}
+
+    void timerHandler() {
+        if (name_) {
+            std::cout << "hello, my name is: " << *name_ << std::endl;
         } else {
-            std::cout<< "subscriber has no name." << std::endl;
+            std::cout << "subscriber has no name." << std::endl;
         }
     }
+
 private:
     boost::optional<std::string> name_;
 };
 
 class timer {
 public:
-    timer(boost::asio::io_context& ioc, boost::asio::chrono::seconds seconds): t_(std::make_shared<boost::asio::steady_timer> (ioc, seconds)), seconds_(seconds) {
+    timer(boost::asio::io_context &ioc, boost::asio::chrono::seconds seconds) : t_(
+            std::make_shared<boost::asio::steady_timer>(ioc, seconds)), seconds_(seconds) {
         t_->async_wait(boost::bind(&timer::trigger, this, boost::asio::placeholders::error, t_));
     }
 
@@ -376,7 +383,7 @@ public:
     }
 
 private:
-    void trigger(const boost::system::error_code& e, std::shared_ptr<boost::asio::steady_timer> t) {
+    void trigger(const boost::system::error_code &e, std::shared_ptr<boost::asio::steady_timer> t) {
         std::cout << "hello" << std::endl;
         publisher_();
         t_->expires_at(t->expiry() + boost::asio::chrono::seconds(seconds_));
@@ -413,7 +420,7 @@ TEST(boost_lib, Signals2_customized_manage) {
         p.Scores_with_name.connect(
                 Player::signalType::slot_type
                         (&Coach::PlayerScoredWithName, coach.get(), _1).track(coach)
-                        // can also use track_foreign(coach) for non boost pointers e.g. std::shared_ptr
+                // can also use track_foreign(coach) for non boost pointers e.g. std::shared_ptr
         );
         p.Scores_with_name("John"); // signal handled
     }
@@ -424,16 +431,16 @@ TEST(boost_lib, Signals2_customized_manage) {
 // -> a slot function may return a value
 // -> the result of direing a signal is a pointer to the LAST value
 TEST(boost_lib, Signals2_advanced_return) {
-    boost::signals2::signal<float(float,float)> s;
-    s.connect(0,[](float a, float b){   // just one slot
-        return a*b;
+    boost::signals2::signal<float(float, float)> s;
+    s.connect(0, [](float a, float b) {   // just one slot
+        return a * b;
     });
-    EXPECT_EQ(20, *s(4,5)); // signal needs to be dereferenced to get the values
+    EXPECT_EQ(20, *s(4, 5)); // signal needs to be dereferenced to get the values
 
-    s.connect(1,[](float a, float b){   // multiple slots
-        return a+b;
+    s.connect(1, [](float a, float b) {   // multiple slots
+        return a + b;
     });
-    EXPECT_EQ(9, *s(4,5)); // the last connect returns to signal
+    EXPECT_EQ(9, *s(4, 5)); // the last connect returns to signal
 }
 
 // Accessing connection in the slot
@@ -441,15 +448,14 @@ TEST(boost_lib, Signals2_advanced_passing_connection) {
     // if we want to disconnect after number of calls
     boost::signals2::signal<void(int)> s;
     int v = 0;
-    s.connect_extended([&v](const boost::signals2::connection& conn, int value){
+    s.connect_extended([&v](const boost::signals2::connection &conn, int value) {
         static int count = 0;
-        if (count == 3){
+        if (count == 3) {
             conn.disconnect();
-        }
-        else {
+        } else {
             v = v + value;
         }
-        count ++;
+        count++;
     });
     s(1);
     s(1);
@@ -462,7 +468,7 @@ TEST(boost_lib, Signals2_advanced_passing_connection) {
 // notification on property changes -> a.k.a INotifyPropertyChanged
 TEST(boost_lib, Signals2_advanced_property_change) {
     Player p("John");
-    p.PropertyChanged.connect([](const Player* p, std::string property, int value){
+    p.PropertyChanged.connect([](const Player *p, std::string property, int value) {
         std::cout << p->name_ << " " << property << " has changed with value " << value << std::endl;
     });
     p.SetAge(30);
@@ -470,6 +476,7 @@ TEST(boost_lib, Signals2_advanced_property_change) {
 
 #include <boost/token_functions.hpp>
 #include <boost/tokenizer.hpp>
+
 TEST(boost_lib, string_token_demo) {
     std::string s = "To be, or not to be?";
 
@@ -486,6 +493,7 @@ TEST(boost_lib, string_token_demo) {
 }
 
 #include <boost/lexical_cast.hpp>
+
 TEST(boost_lib, string_texical_cast) {
     std::string s = "2.1";
     double d = boost::lexical_cast<double>(s);
@@ -498,13 +506,14 @@ TEST(boost_lib, string_texical_cast) {
     try {
         boost::lexical_cast<int>("abcdefg");
     }
-    catch (const boost::bad_lexical_cast& e) {
+    catch (const boost::bad_lexical_cast &e) {
         std::cout << e.what() << std::endl;
     }
 }
 
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/trim_all.hpp>
+
 TEST(boost_lib, string_algorthm_string) {
     std::string t = "hello world\r\n";
     EXPECT_NE("hello world", t);
@@ -525,36 +534,60 @@ TEST(boost_lib, string_algorthm_string) {
 }
 
 #include <boost/bimap.hpp>
+
 enum class Color {
     Red,
     Green,
     Blue
 };
 
-typedef boost::bimap<Color, std::string> ColorMapTypes;
+//typedef boost::bimap<Color, std::string> ColorMapTypes;
+//
+//class ColorUtil {
+//public:
+//    static ColorMapTypes map;
+//    static void init();
+//    static std::string toString(ColorMapTypes color) {
+//        return "";
+//    }
+//    static Color toEnum(const std::string* color){
+//        return Color::Red;
+//    };
+//};
+//
+//void ColorUtil::init() {
+//
+//};
+//
 
 TEST(boost_lib, string_algorthm_bimap) {
-    auto r = Color::Red;
-    // std::cout << c << std::endl; not able to print
+//    ColorUtil::map.insert(ColorMapTypes::value_type(Color::Red, "Red"));
+//    ColorUtil::map.insert(ColorMapTypes::value_type(Color::Green, "Green"));
+//    ColorUtil::map.insert(ColorMapTypes::value_type(Color::Blue, "Blue"));
 
-    ColorMapTypes colorType;
-    colorType.insert(ColorMapTypes::value_type(Color::Red, "Red"));
 
-    Color c = colorType.right.at("Red");
-    EXPECT_EQ(Color::Red, c);
-    std::string s = colorType.left.at(Color::Red);
-    EXPECT_EQ("Red", s);
-
-    std::cout<< colorType.left.at(Color::Red) << std::endl;
+//    auto r = Color::Red;
+//    // std::cout << c << std::endl; not able to print
+//
+////    ColorMapTypes colorType;
+////    colorType.insert(ColorMapTypes::value_type(Color::Red, "Red"));
+//
+//    Color c = colorType.right.at("Red");
+//    EXPECT_EQ(Color::Red, c);
+//    std::string s = colorType.left.at(Color::Red);
+//    EXPECT_EQ("Red", s);
+//
+//    std::cout<< colorType.left.at(Color::Red) << std::endl;
 }
 
 #include <boost/units/unit.hpp>
 #include <boost/units/systems/si.hpp>
 #include <boost/units/systems/si/prefixes.hpp>
+
 TEST(boost_lib, string_algorthm_units) {
     typedef boost::units::make_scaled_unit<boost::units::si::length, boost::units::scale<10, boost::units::static_rational<-2>>>::type cm;
     boost::units::quantity<cm> d(2.0 * boost::units::si::meters);
     boost::units::quantity<boost::units::si::time> t(100.0 * boost::units::si::seconds);
-    boost::units::quantity<boost::units::si::velocity> x(d/t);
+    boost::units::quantity<boost::units::si::velocity> x(d / t);
     // boost::units::quantity<boost::units::si::velocity> x(d/t/t); this will give compile error
 }
