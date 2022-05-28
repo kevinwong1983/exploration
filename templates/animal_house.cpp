@@ -3,7 +3,7 @@
 //
 
 #include "animal_house.h"
-#include "creational_patterns/factories/ape.h"
+#include "design_patterns/creational/factories/ape.h"
 
 using namespace houses;
 

@@ -1,0 +1,52 @@
+@startuml
+skinparam monochrome true
+package "Algorithms" {
+
+    Interface AlgorithmInterface {
+        doAlgorithm()
+    }
+
+    class AlgorithmImpl1 {
+        doAlgorithm()
+    }
+
+    class AlgorithmImpl2 {
+        doAlgorithm()
+    }
+}
+
+
+AlgorithmInterface <|.. AlgorithmImpl1
+AlgorithmInterface <|.. AlgorithmImpl2
+
+class superclass {
+    AlgorithmInterface behavior
+    setBehavior()
+    performBehavior()
+}
+class subclass1 {
+
+}
+class subclass2 {
+
+}
+
+superclass <|-- subclass1
+superclass <|-- subclass2
+superclass *-- AlgorithmInterface
+
+note as N1
+<b>The Strategy pattern
+This pattern defines a family of algorithms,
+encapsulates each one, and makes them interchangeable.
+This let the algorithm vary independently from clients that use it.
+end note
+note right of Algorithms
+<b>Design Principle 3.
+* Favor Composition over Inheritance
+Classes should achieve code reuse using
+composition rather than inheritance from
+a superclass.
+* Composition leads to a more flexible design.
+end note
+@enduml

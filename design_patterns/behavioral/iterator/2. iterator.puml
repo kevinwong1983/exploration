@@ -1,0 +1,58 @@
+@startuml
+skinparam monochrome true
+
+interface Aggregate {
+    createIterator()
+}
+
+class ConcreteAggregate {
+    createIterator()
+}
+
+class Client {
+}
+
+interface Iterator {
+    hasNext()
+    next()
+}
+
+class ConcreteIterator {
+     hasNext()
+     next()
+}
+
+note bottom of ConcreteAggregate
+    Collection of objects, like an array, lists
+    maps etc. The Client needs to be able to
+    access its elements in a sequential manner,
+    without having to know how the aggregate
+    is implemented.
+end note
+
+note bottom of Client
+    To iterate over an aggregate object using
+    the iterator pattern, the client ask an
+    aggregate object first for its iterator and
+    uses it to iterate through echt of its element.
+    because every aggregate object provides the same
+    kind of iterator, the client can use the same
+    code to iterate over any kind of aggregate object.
+end note
+
+note as N
+    <b>Single Responsibility Principle
+    * For every additional responsibility, a class
+    has another reason it might have to change in the
+    future.
+    * Two responsibilities (collection and iteration)
+    means two areas of potential change.
+    * We want to avoid change whenever possible.
+end note
+
+Aggregate <|.. ConcreteAggregate
+Aggregate o-- Client
+Iterator o-- Client
+Iterator <|.. ConcreteIterator
+
+@enduml

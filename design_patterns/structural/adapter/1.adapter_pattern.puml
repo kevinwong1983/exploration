@@ -1,0 +1,35 @@
+@startuml
+skinparam monochrome true
+class Client
+Interface Target {
+    request()
+}
+class Adapter {
+    request()
+}
+class Adaptee {
+    specificRequest()
+}
+
+Target *-- Client : compose
+Target <.. Adapter : implements
+Adapter *-- Adaptee : compose
+
+note as N1
+    <b>The Adapter
+    * The pattern coverts the interface of a
+    class into another interface that clients
+    expect. It allows classes to work together
+    that couldn't otherwise because of
+    incompatible interfaces.
+    * Adapter is using composition. Client is
+    composed with the class with the Target interface.
+    * Adapter is composed with the adaptee,
+    delegates calls to the adaptee, and returns
+    any needed value.
+    * The Client and the adaptee don't know there's
+    an adapter in between.
+end note
+
+
+@enduml

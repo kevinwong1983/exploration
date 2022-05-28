@@ -1,0 +1,47 @@
+@startuml
+
+class Client
+
+class AnimalFactory {
+    register()
+    create()
+}
+
+abstract Factory {
+    create()
+}
+
+class DogFactory {
+    create()
+}
+
+class ApeFactory {
+    create()
+}
+
+Factory <|.. DogFactory
+Factory <|.. ApeFactory
+Client --> AnimalFactory
+AnimalFactory --o Factory
+
+abstract Animal {
+    walk()
+    talk()
+}
+class Dog {
+    walk()
+    talk()
+}
+class Ape {
+    walk()
+    talk()
+}
+Animal <|.. Dog
+Animal <|.. Ape
+Client ..> Animal
+
+DogFactory ..> Dog
+ApeFactory ..> Ape
+
+
+@enduml

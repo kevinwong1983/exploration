@@ -1,0 +1,10 @@
+@startuml
+skinparam monochrome true
+
+class Singleton {
+    static uniqueInstance
+    static getInstance()
+    private Singleton()
+}
+
+@enduml

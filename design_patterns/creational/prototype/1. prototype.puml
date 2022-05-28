@@ -1,0 +1,35 @@
+@startuml
+skinparam monochrome true
+
+class Client {
+}
+note left of Client
+    Prototype p = prototype.clone();
+end note
+
+Interface Prototype {
+    clone()
+}
+
+class ConcretePrototype1 {
+    clone()
+}
+class ConcretePrototype2 {
+    clone()
+}
+
+note left of ConcretePrototype2
+    All objects that want to act
+    as prototypes much implement
+    the prototype interface and
+    implement a method <b>clone</b>.
+    This method makes a copy of
+    the prototype object and returns
+    it.
+end note
+
+Client -l-o Prototype
+Prototype <|.. ConcretePrototype1
+Prototype <|.. ConcretePrototype2
+
+@enduml

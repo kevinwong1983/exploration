@@ -1,0 +1,48 @@
+@startuml
+
+skinparam monochrome true
+
+interface Subject {
+    registerr()
+    remove()
+    notify()
+}
+
+class ConcreteSubject {
+    register()
+    remove()
+    notify()
+    getState()
+    setState()
+}
+
+interface Observer {
+    update()
+}
+
+class ConcreteObserver {
+    update()
+}
+
+Subject  <|.. ConcreteSubject
+Observer <|.. ConcreteObserver
+Subject --* Observer
+ConcreteSubject *-- ConcreteObserver
+
+note right of ConcreteObserver
+    As long as ConcreteObservers implement
+    the Observer interface, they are able to
+    participate in this pattern.
+end note
+
+note as N
+<b>The Observer Pattern
+This pattern defines a one-to-many
+dependency between object so that
+when one object changes state, all of its
+dependents are notified and updated
+automatically.
+end note
+
+
+@enduml

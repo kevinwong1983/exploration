@@ -1226,4 +1226,372 @@ private:
 };
 
 TEST(core_guidelines, I_12) { // declare a pointer that must not be null as not_null
+    std::stringstream ss;
+    auto i = 234;
+    ss << std::setw(1) << std::setfill('0') << i;
+    std::string s = ss.str();
+
+    std::cout << s ;
+}
+
+#include <sstream>
+#include <iomanip>
+
+TEST(printing_digits, prefix) {
+    char randomTag[5]{};
+    memset(randomTag, 'H', sizeof(randomTag));
+    std::ostringstream ss;
+
+    std::cout << sizeof(randomTag) << std::endl;
+    ss << randomTag;
+
+    std::cout << ss.str() << std::endl;
+
+    auto myString = std::string(randomTag);
+    std::cout << myString << std::endl;
+}
+
+#include <queue>
+
+using Done = std::function<void(void)>;
+using Callback = std::function<void(Done)>;
+using Command = std::function<void(void)>;
+boost::asio::io_context io_context;
+
+class Duck {
+public:
+    Duck(std::string name) : name_{name} {
+    }
+
+    void Quack(Done done) {
+        auto timer = std::make_shared<boost::asio::steady_timer>(io_context, boost::asio::chrono::seconds(2));
+        timer->async_wait( std::bind([this, timer, done](){
+            std::cout << name_ << " said Quack! at " << boost::posix_time::microsec_clock::local_time() << std::endl;
+            done();
+        }));
+        std::cout << name_ << " scheduled at " << boost::posix_time::microsec_clock::local_time() << std::endl;
+    }
+
+private:
+    std::string name_;
+};
+
+class CommandQueue {
+public:
+    void Push(Callback callback) {
+        queue_.push([this, callback]() {
+            callback(std::bind(&CommandQueue::exe, this));
+        });
+    }
+
+    void Execute() {
+        if (allowExecute_ == true) {
+            exe();
+        }
+    }
+
+private:
+    void exe() {
+        if (!queue_.empty()) {
+            allowExecute_ = false;
+            auto command = queue_.front();
+            queue_.pop();
+            command();
+        } else {
+            allowExecute_ = true;
+        }
+    }
+
+    std::queue<Command> queue_;
+    bool allowExecute_ = true;
+};
+
+class Simulator {
+public:
+    void Simulate(std::vector<std::shared_ptr<Duck>> &ducks) {
+        for (auto &&duck: ducks) {
+            queue_.Push( std::bind(&Simulator::MakeItQuack, this, duck, std::placeholders::_1));
+        }
+        queue_.Execute();
+    }
+
+    void MakeItQuack(std::shared_ptr<Duck> duck, Done done) {
+        duck->Quack(std::move(done));
+    }
+
+private:
+    CommandQueue queue_;
+};
+
+TEST(queue, simple_queue) {
+    auto simulator = Simulator();
+
+    std::vector<std::shared_ptr<Duck>> ducks1;
+    auto d1 = std::make_shared<Duck>("daan");
+    auto d2 = std::make_shared<Duck>("gijs");
+    auto d3 = std::make_shared<Duck>("mier");
+    ducks1.push_back(d1);
+    ducks1.push_back(d2);
+    ducks1.push_back(d3);
+    simulator.Simulate(ducks1);
+
+    std::vector<std::shared_ptr<Duck>> ducks2;
+    auto d4 = std::make_shared<Duck>("hek");
+    auto d5 = std::make_shared<Duck>("au");
+    auto d6 = std::make_shared<Duck>("vos");
+    ducks2.push_back(d4);
+    ducks2.push_back(d5);
+    ducks2.push_back(d6);
+    simulator.Simulate(ducks2);
+
+    io_context.run();
+}
+
+
+class Child;
+
+class GrandGrandParent : public std::enable_shared_from_this<GrandGrandParent> {
+public:
+    virtual ~GrandGrandParent() = default;
+};
+
+class GrandParent : public GrandGrandParent {
+};
+
+class Parent : public GrandParent {
+public:
+    void SetChild(std::shared_ptr<Child> child);
+
+private:
+    std::weak_ptr<Child> c_;
+};
+
+class Child {
+public:
+    void SetParent(std::shared_ptr<Parent> parent) {
+        p_ = parent;
+    }
+
+private:
+    std::shared_ptr<Parent> p_;
+};
+
+void Parent::SetChild(std::shared_ptr<Child> child) {
+    c_ = child;
+    c_.lock()->SetParent(std::dynamic_pointer_cast<Parent>(shared_from_this()));
+}
+
+// Finally, there are two points to note:
+// 1. Using std::dynamic_pointer_cast<T>() requires a virtual function in the base class,
+// This is because this conversion function uses the input type and the target type whether
+// there is a virtual function with the same signature as an indicator of whether the
+// conversion can be successful. The simplest and correct solution is to declare the destructor
+// in the base class as a virtual function. To
+// 2. Cannot use shared_form_this() in the constructor. This is because std::enable_share_from_this
+// uses an object's weak_ptr in its implementation, and this weak_ptr needs the object's shared_ptr
+// to initialize. Since the object has not yet been constructed at this time, an exception of
+// std::bad_weak_ptr will be thrown. There is currently no perfect solution for this. You can try
+// to write an init() function, which is called manually after the object is constructed. Or write
+// a std::shared_ptr<Derived>(this) manually, but this solution may cause circular references.
+// For more solutions, please refer to StackOverFlow.
+
+TEST(compound_patterns, make_shared_from_this) {
+
+    auto parent = std::make_shared<Parent>();
+    auto child = std::make_shared<Child>();
+
+    parent->SetChild(child);
+}
+
+#include "sqlite3.h"
+
+TEST(static_casting, static_casting) {
+    sqlite3 * connection = nullptr;
+
+    int result = sqlite3_open(":memory:", &connection);
+
+    if (SQLITE_OK != result)
+    {
+        std::cout << std::string(sqlite3_errmsg(connection));
+        sqlite3_close(connection);
+    }
+}
+
+static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
+    int i;
+    for(i = 0; i<argc; i++) {
+        printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+    }
+    printf("\n");
+    return 0;
+}
+
+static void exec(sqlite3* connection, char* sql) {
+    char *zErrMsg = 0;
+    int rc;
+
+    /* Execute SQL statement */
+    rc = sqlite3_exec(connection, sql, callback, 0, &zErrMsg);
+
+    if( rc != SQLITE_OK ){
+        std::cout << "SQL error: " << zErrMsg << " return code: " << rc << std::endl;
+        sqlite3_free(zErrMsg);
+    } else {
+        std::cout << "execute successfull" << std::endl;
+    }
+}
+
+TEST(sql, create) {
+    auto path = "/Users/user/CLionProjects/experimental/database.db";
+    char *zErrMsg = 0;
+    int rc;
+    char *sql;
+    sqlite3 * connection = nullptr;
+
+    rc = sqlite3_open(path , &connection);
+
+    if( rc ) {
+        std::cout << "Can't open database: " << sqlite3_errmsg(connection) << std::endl;
+    } else {
+        std::cout << "Opened database successfully" << std::endl;
+    }
+
+    /************** Create SQL statement **************/
+    sql = "CREATE TABLE COMPANY("  \
+      "ID INT PRIMARY KEY     NOT NULL," \
+      "NAME           TEXT    NOT NULL," \
+      "AGE            INT     NOT NULL," \
+      "ADDRESS        CHAR(50)," \
+      "SALARY         REAL );";
+    exec(connection, sql);
+
+    sqlite3_close(connection);
+}
+
+TEST(sql, read) {
+    auto path = "/Users/user/CLionProjects/experimental/database.db";
+    char *zErrMsg = 0;
+    int rc;
+    char *sql;
+    sqlite3 * connection = nullptr;
+
+    rc = sqlite3_open(path , &connection);
+
+    if( rc ) {
+        std::cout << "Can't open database: " << sqlite3_errmsg(connection) << std::endl;
+    } else {
+        std::cout << "Opened database successfully" << std::endl;
+    }
+
+    sql = "SELECT * from COMPANY";
+    exec(connection, sql);
+
+    sqlite3_close(connection);
+}
+
+TEST(sql, open) {
+    auto path = "/Users/user/CLionProjects/experimental/database.db";
+    char *zErrMsg = 0;
+    int rc;
+    char *sql;
+    sqlite3 * connection = nullptr;
+
+    rc = sqlite3_open(path , &connection);
+
+    if( rc ) {
+        std::cout << "Can't open database: " << sqlite3_errmsg(connection) << std::endl;
+    } else {
+        std::cout << "Opened database successfully" << std::endl;
+    }
+
+    /************** BEGIN **************/
+    sql = "BEGIN TRANSACTION ";
+    exec(connection, sql);
+
+    /************** Create SQL statement **************/
+    sql = "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY) "  \
+         "VALUES (1, 'Paul', 32, 'California', 20000.00 ); " \
+         "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY) "  \
+         "VALUES (2, 'Allen', 25, 'Texas', 15000.00 ); "     \
+         "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY)" \
+         "VALUES (3, 'Teddy', 23, 'Norway', 20000.00 );" \
+         "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY)" \
+         "VALUES (4, 'Mark', 25, 'Rich-Mond ', 65000.00 );";
+    exec(connection, sql);
+    /************** Create SQL statement **************/
+    sql = "SELECT * from COMPANY";
+    exec(connection, sql);
+    /************** Create merged SQL statement **************/
+    sql = "UPDATE COMPANY set SALARY = 25000.00 where ID=1; " \
+         "SELECT * from COMPANY";
+    exec(connection, sql);
+    /************** Create merged SQL statement **************/
+    sql = "UPDATE COMPANY set SALARY = 25000.00 where ID=1; " \
+         "SELECT * from COMPANY";
+    exec(connection, sql);
+    /************** Create merged SQL statement **************/
+    sql = "DELETE from COMPANY where ID=2; " \
+         "SELECT * from COMPANY";
+    exec(connection, sql);
+
+    /************** COMMIT **************/
+    sql = "COMMIT ";
+    exec(connection, sql);
+
+    sqlite3_close(connection);
+}
+
+
+TEST(sql, recommit) {
+    auto path = "/Users/user/CLionProjects/experimental/database.db";
+    char *zErrMsg = 0;
+    int rc;
+    char *sql;
+    sqlite3 * connection = nullptr;
+
+    rc = sqlite3_open(path , &connection);
+
+    if( rc ) {
+        std::cout << "Can't open database: " << sqlite3_errmsg(connection) << std::endl;
+    } else {
+        std::cout << "Opened database successfully" << std::endl;
+    }
+
+    /************** BEGIN **************/
+    sql = "BEGIN TRANSACTION ";
+    exec(connection, sql);
+
+    /************** Create SQL statement **************/
+    sql = "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY) "  \
+         "VALUES (1, 'Paul', 32, 'California', 20000.00 ); " \
+         "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY) "  \
+         "VALUES (2, 'Allen', 25, 'Texas', 15000.00 ); "     \
+         "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY)" \
+         "VALUES (3, 'Teddy', 23, 'Norway', 20000.00 );" \
+         "INSERT INTO COMPANY (ID,NAME,AGE,ADDRESS,SALARY)" \
+         "VALUES (4, 'Mark', 25, 'Rich-Mond ', 65000.00 );";
+    exec(connection, sql);
+    /************** Create SQL statement **************/
+    sql = "SELECT * from COMPANY";
+    exec(connection, sql);
+    /************** Create merged SQL statement **************/
+    sql = "UPDATE COMPANY set SALARY = 25000.00 where ID=1; " \
+         "SELECT * from COMPANY";
+    exec(connection, sql);
+    /************** Create merged SQL statement **************/
+    sql = "DELETE from COMPANY where ID=2; " \
+         "SELECT * from COMPANY";
+    exec(connection, sql);
+
+    /************** COMMIT **************/
+    sql = "BEGIN TRANSACTION "; // SQL error: cannot start a transaction within a transaction return code: 1
+    exec(connection, sql);
+
+    sql = "COMMIT ";
+    exec(connection, sql);
+
+    sql = "COMMIT ";
+    exec(connection, sql); // SQL error: cannot commit - no transaction is active return code: 1
+
+    sqlite3_close(connection);
 }

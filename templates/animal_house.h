@@ -1,5 +1,5 @@
 #pragma once
-#include "creational_patterns/factories/dog.h"
+#include "design_patterns/creational/factories/dog.h"
 
 namespace houses {
     template <class Animal>

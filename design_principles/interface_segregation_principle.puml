@@ -1,0 +1,61 @@
+@startuml
+skinparam monochrome true
+interface VendingMachine {
+    takeMoney()
+
+    brewCoffee()
+    brewHotChololate()
+    brewTea()
+
+    dispenseWater()
+    dispenseSode()
+
+    dispenseSnack()
+}
+
+note top of VendingMachine
+    <b>Before Interface Segregation
+    *Methods in the  vendiMachine interface has
+    low cohesion in the methods of the
+    *Clients that use VendingMachine interface for
+    hotbeverages do not care about cold beverages
+    and snacks.
+end note
+
+note left of VendingMachine::brewCoffee
+    hot beverages
+end note
+
+note left of VendingMachine::dispenseWater
+    cold beverages
+end note
+
+note left of VendingMachine::dispenseSnack
+    snacks
+end note
+
+interface VendingMachine2 {
+    takeMoney()
+}
+class hotBeverages {
+    brewCoffee()
+    brewHotChololate()
+    brewTea()
+}
+class coldBeverages {
+    dispenseWater()
+    dispenseSode()
+}
+class snacks {
+     dispenseSnack()
+}
+VendingMachine2 <|-- hotBeverages
+VendingMachine2 <|-- coldBeverages
+VendingMachine2 <|-- snacks
+
+note right of VendingMachine2
+    <b>After interface segregation
+    *We have interface with high cohesion.
+end note
+
+@enduml

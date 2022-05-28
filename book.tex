@@ -1,0 +1,49 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+\usepackage{blindtext}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{subfiles} % Best loaded last in the preamble
+\usepackage{multicol}
+
+\graphicspath{ {design_principles/} }
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+\lstset{
+language=C++,
+aboveskip=3mm,
+belowskip=3mm,
+showstringspaces=false,
+columns=flexible,
+basicstyle={\tiny\ttfamily},
+numbers=left,
+numberstyle=\tiny\color{gray},
+keywordstyle=\color{blue},
+commentstyle=\color{dkgreen},
+stringstyle=\color{mauve},
+breaklines=true,
+breakatwhitespace=true,
+tabsize=3
+}
+
+\title{A Software Engineers guide towards Object Oriented Design}
+\author{Kevin Wong}
+\date{ }
+
+\begin{document}
+
+    \maketitle
+
+    \section{Introduction}
+    \subfile{design_principles/desing_principles}
+    \subfile{design_patterns/design_patterns}
+    \subfile{design_patterns/creational/creational_patterns}
+    \subfile{design_patterns/behavioral/behavioral_patterns}
+    \subfile{design_patterns/structural/structural_patterns}
+
+\end{document}

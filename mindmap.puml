@@ -1,0 +1,105 @@
+@startmindmap
+* Why
+** We make treshhold low for script development
+** Attract more people to create use behavior scripting
+@endmindmap
+
+@startmindmap
+skinparam monochrome true
+<style>
+node {
+    MaximumWidth 400
+}
+</style>
+title Behavior Scripting 101
+
+* Behavior Scripting 101
+
+-- 1. what
+--- implement a Hue Alarm System together using the SDK \n-> in the meantime we go through behavior engine api docs
+
+-- 2. use-case
+--- 1. We choose to implement a Hue Alarm since the usecases cover a lot of the functionality that behavoir engine offers.
+--- 1. trigger police siren alarm -> when burgler detected \n2. arm when user leaves home -> make use of geofence \n3. dis-arm when enters  home \n4. disable alarm using app -> script triggers
+--- usecase-functionality mapping
+---- 1. siren -> light control -> clip \n2. siren -> timers \n3. arming/disarming -> make use of geofence \n4. burglar detecting -> subscribe to events
+
+-- 3. setup you project and add script
+--- 1. already downloaded sdk \n2. open webstorm -> new project
+--- 3. in terminal open init_empty_git_project.sh \n-> hse: preconfigured with some resources \n-> show browser \n-> tooling: clipv2 client (play!)
+--- 4  add-script.sh HueAlarm \n-> http client, alarm added
+
+-- 4. empty script
+--- 1. go through generated script -> logging \n2. run -> show terminal
+
+** 4.police siren-PART 1: control lights \n-> introduce two concepts
+*** 1.configuration. \n-> indicate which light participates in the alarm
+****_ 1.get lights
+****_ 2.fill in configuration
+****_ 3.add log of config
+****_ 4.run and check log
+*** 2. clip module\n-> put on a light with a specific action
+****_ 1.clip documentation
+****_ 2.copy example & run & check logs
+****_ 3.create setLightAction()
+****_ 4.config.light.forEach()
+
+** 5.police siren-PART 2: blinking lights \n-> we need timers
+*** 1. intro to timers
+****_ 1.documentation
+****_ 2.copy example & run & check logs
+*** 2. combine timer with light control
+****_ 1.copy blue & red actions
+****_ 2.create turnOnAlarm()
+****_ 3.call turnOnAlarm()
+****_ 4.create turnOffAlarm()
+
+** 6.detecting burglar \n->subscribing to events (motion sensor)
+*** 1. exend configuration \n-> add sensor
+****_ 1.get sensors
+****_ 2.fill in configuration
+*** 2. use subscribe to updates \n-> get events of motion sensor
+****_ 1.scriptbase documentation
+****_ 2.copy example & run & check logs
+****_ 3.create motionHandler()
+
+** 7.arm and disarm my alarm \n-> bridge need to know if user is at home or not: geofencing -> Coming/Leaving Home scripts \n-> alarm armed: only when user leaves home \n-> we dont have a phone so we show only on api level
+*** use geofence module to \nget events of geofence clients
+****_ 1.get geofence_client (at_home true/at_home false)
+****_ 2.geofence documentation
+****_ 3.copy example & run -> (at_home true/at_home false)
+****_ 4.create motionHandler()
+
+** 8.canceling alarm using an app \n-> script trigger \n-> show only on api level
+***_ 1.uncomment the trigger part of script
+***_ 2.play
+
+** 9. wrap-up
+***_ 1.show whole thing
+***_ 2.what is next!
+****_ 1.private resources.
+****_ 2.schema validation
+****_ 3.testing
+****_ 4.memory consumption
+
+@endmindmap
+
+@startuml
+skinparam monochrome true
+
+left to right direction
+actor "burglar" as burglar
+actor "user" as user
+
+rectangle "Users Home" {
+  usecase "Turn On HueAlarm" as UC1
+  usecase "Arm HueAlarm" as UC2
+  usecase "Disarm HueAlarm" as UC3
+  usecase "Turn Off HueAlarm" as UC4
+
+burglar --> UC1: Detected by motion sensors
+user --> UC2: Leaves home
+user --> UC3: Comes home
+user --> UC4: Use App
+
+@enduml

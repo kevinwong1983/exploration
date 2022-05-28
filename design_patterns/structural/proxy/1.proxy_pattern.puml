@@ -1,0 +1,50 @@
+@startuml
+skinparam monochrome true
+
+Interface Subject {
+    request()
+}
+
+class RealSubject{
+    request()
+}
+
+class Proxy{
+    request()
+}
+
+RealSubject .u.|> Subject
+Proxy .u.|> Subject
+Proxy -l-> RealSubject: subject
+
+note left of Subject
+    Both the proxy and the RealSubject
+    implements the subject interface.
+    This allows any client to treat
+    the proxy just like the RealSubject.
+end note
+
+note right of Proxy
+    *The Proxy intercepts a method
+    invocation that client is making
+    on the subject.
+    *The Proxy keeps a reference
+    to the Subject, so it can
+    forward request to the Subject
+    when necessary.
+    *The Proxy often instantiates
+    or handles the creation of the
+    RealSubject.
+end note
+
+note left of RealSubject
+    The RealSubject is usually the
+    object that does most of the real
+    work; The Proxy controls the access
+    to it.
+end note
+
+
+
+
+@enduml

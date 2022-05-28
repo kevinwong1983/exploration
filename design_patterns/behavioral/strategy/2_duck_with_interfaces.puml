@@ -1,0 +1,82 @@
+@startuml
+skinparam monochrome true
+interface Flyable {
+    fly()
+}
+
+note left of Flyable
+    <b>What about interfaces
+    * defines methods an object must have
+    in order to be condisered a particulare
+    type;
+    * abstract type that specifies a barhavior
+    that class must implement;
+    * allow differne classes to share similarities
+    * not all classes need to have same behavior
+    e.g. some ducks are able to fly, some not.
+
+    <b>Problems
+    * destroys reuse e.g. each duck needs to implement
+    fly and quack...
+    * It becomees a maintenance nightmare
+    * It does not allow for runtime changes in behavior
+end note
+note top of Flyable
+    <b>Implement duck with interfaces
+    * If I am a duck and I can fly, I implement Flyable interface.
+    * If I am a duck and I can quack, I implement Quackable interface.
+end note
+
+interface Quackable {
+    quack()
+}
+
+class Duck {
+    swim()
+    dispay()
+}
+note top of Duck
+    Duck only need to implement
+    a swim and diplay method, since
+    all ducks do that.
+end note
+
+class MalllardDuck{
+   dispay()
+   quack()
+   fly()
+}
+
+note left of MalllardDuck::fly
+    Each subclass of duck implements
+    the fly and quack methods if needed.
+end note
+
+class RedheadDuck {
+     dispay()
+     quack()
+     fly()
+}
+
+class Rubberduck {
+    dispay()
+    quack()
+}
+
+class Decoyduck {
+    dispay()
+}
+
+Flyable <|.. MalllardDuck
+Flyable <|.. RedheadDuck
+Quackable <|.. MalllardDuck
+Quackable <|.. RedheadDuck
+Quackable <|.. Rubberduck
+
+Duck <|-- MalllardDuck
+Duck <|-- RedheadDuck
+Duck <|-- Rubberduck
+Duck <|-- Decoyduck
+
+
+@enduml

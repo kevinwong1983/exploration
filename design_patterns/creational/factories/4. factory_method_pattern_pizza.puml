@@ -1,0 +1,50 @@
+@startuml
+
+class PizzaStore {
+    createPizza()
+    orderPizza()
+}
+
+note left of PizzaStore
+    factory method deveres instantiation
+    to subclasses. PizzaStore is defining
+    OrderPizza method, but leasving the createPizza
+    method to be implemented by the subclasses.
+end note
+class ChicagoStylePizzaFactory {
+    createPizza()
+}
+
+class NYStylePizzaFactory {
+    createPizza()
+}
+
+PizzaStore <|.. ChicagoStylePizzaFactory
+PizzaStore <|.. NYStylePizzaFactory
+
+
+class Pizza {
+    prepare()
+    bake()
+    cut()
+    box()
+}
+
+class NYStylecheesePizza {
+}
+class NYStyleVeggiePizza {
+}
+class ChicagoStyleClamPizza {
+}
+class ChicagoStylePepperoniPizza {
+}
+Pizza <|.. NYStylecheesePizza
+Pizza <|.. NYStyleVeggiePizza
+Pizza <|.. ChicagoStyleClamPizza
+Pizza <|.. ChicagoStylePepperoniPizza
+
+PizzaStore --* Pizza
+
+class Client
+Client --* PizzaStore
+@enduml

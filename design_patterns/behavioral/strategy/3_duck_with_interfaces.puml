@@ -1,0 +1,92 @@
+@startuml
+skinparam monochrome true
+interface FlyBehavior {
+    quack()
+}
+
+note top of FlyBehavior
+    <b>Design principle 2.
+    Program to an Interface not an implementation:
+    Clients remain unaware of the specific types
+    of objects thay use, as long as the objects
+    adhere to the interface that clientss expect.
+end note
+
+interface Quack {
+    quack()
+}
+interface Squeak {
+    quack()
+}
+interface Mute {
+    quack()
+}
+
+FlyBehavior <|.. Quack
+FlyBehavior <|.. Squeak
+FlyBehavior <|.. Mute
+
+interface QuackBehavior {
+    quack()
+}
+interface FlyWithWings {
+    fly()
+}
+interface FlyNoWay {
+     fly()
+}
+QuackBehavior<|.. FlyWithWings
+QuackBehavior<|.. FlyNoWay
+
+class Duck {
+    FlyBehavior flyBehavior
+    QuackBehavior quackBehavior
+    setFlyBehavior()
+    setQuackBehavior()
+    performQuack()
+    performFly()
+    swim()
+    dispay()
+}
+
+note top of Duck
+   <b>Design principle 1.
+   encapsulate what varies: identify the aspects what varries
+   and separate them from what stays the same.
+   * Fly and Quack varries from each class.
+end note
+
+note right of Duck::flyBehavior
+   <b>The Strategy Pattern
+   * These hold references to concrete
+   instances of flyBehavior/quackBehavior.
+   * This is a <b>HAS-A relationship</b>.
+   A duck is composed with a FlyBehavior and a QuackBehavior.
+end note
+
+Duck *-- QuackBehavior
+Duck *-- FlyBehavior
+
+
+class MalllardDuck{
+   dispay()
+}
+
+class RedheadDuck {
+     dispay()
+}
+
+class Rubberduck {
+    dispay()
+}
+
+class Decoyduck {
+    dispay()
+}
+
+Duck <|-- MalllardDuck
+Duck <|-- RedheadDuck
+Duck <|-- Rubberduck
+Duck <|-- Decoyduck
+
+@enduml

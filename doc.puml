@@ -1,0 +1,89 @@
+@startuml
+skinparam monochrome true
+
+package clip {
+
+    interface Client {
+        DoGet(url, cb)
+        DoPut(url, data, cb)
+        DoPost(url, data, cb)
+        DoDelete(url, cb)
+        GetSiblingServiceIds(id)
+        GetClipEntries(type)
+        GetResourceServiceEventStream()
+    }
+
+    class IPBridgeClient {
+       ipbridge_client_adapter_;
+       stream_;
+    }
+
+    Interface IPBridgeGrpcClientAdapter {
+        GetService(id, type, cb)
+        SetService(id, type, data, cb)
+        CreateService(type, data, cb)
+        DeleteService(id, type, cb)
+        GetResourceServiceEventStream()
+    }
+
+    class IPBridgeGrpcClientAdapterImpl {
+        GetResource(id, cb)
+        SetResource(resource, cb)
+        CreateResource(resource, cb)
+        DeleteResource(id, cb)
+    }
+
+    note right of IPBridgeGrpcClientAdapterImpl::GetResource
+        *seem like these functions are
+        public exposed for testing
+        purposes
+    end note
+
+    IPBridgeClient .u.|> Client
+    IPBridgeGrpcClientAdapterImpl .u.|> IPBridgeGrpcClientAdapter
+    IPBridgeClient -u-* IPBridgeGrpcClientAdapter
+
+    class BehaviordClient {
+        resources_
+        stream_
+    }
+
+    class ClipClient {
+        -GetClient()
+        clients_
+        stream_
+        stream_connections_
+    }
+
+    BehaviordClient .u.|> Client
+    ClipClient -u-o Client
+    ClipClient .u.|> Client
+
+    note top of ClipClient
+        *ClipClient is a composite
+        of both IpBridgeClient and
+        BehaviordClient
+    end note
+
+    interface ClientFactory{
+        Create()
+    }
+
+    class ClientFactoryImpl{
+    }
+
+    ClientFactoryImpl .u.|> ClientFactory
+    ClientFactoryImpl .l. Client
+    note right of ClientFactoryImpl
+        ClientFactoryImpl is statically
+        defined and accesable via
+        a free function: GetClientFactory()
+    end note
+
+    class MqttClipClient {
+
+    }
+
+    MqttClipClient .u.|> Client
+}
+@enduml

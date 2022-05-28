@@ -1,0 +1,46 @@
+@startuml
+skinparam monochrome true
+class TvRemoteControl {
+    Television tv
+    click()
+}
+
+class Television1 {
+    turnTvOn()
+    turnTvOff()
+}
+
+TvRemoteControl --o Television1
+note left of TvRemoteControl
+    Here we have a high level component
+    that depends on directly on a concrete
+    low-level component.
+end note
+
+class RemoteControl {
+    OnOffDevice device
+    click()
+}
+
+interface OnOffDevice {
+    turnOn()
+    turnOff()
+}
+
+class Television2 {
+    turnOn() { turnOnTv() }
+    turnTvOff() { turnOffTv() }
+}
+
+RemoteControl --o OnOffDevice
+OnOffDevice <|.. Television2
+
+note right of RemoteControl
+    The high-level policy is turnOn/turnOff
+    of any device. By adding an interface
+    in between, our high-level policy does not
+    depend on the low level details. Also
+    the low-level component depends on the
+    abstraction.
+end note
+@enduml

@@ -1,0 +1,36 @@
+@startuml
+
+note as N1
+    <b>Program to an Interface, Not an Implementation
+    Clients remain unaware of the specific type of
+    objects they use, as long as the object adhere to
+    the interface that clients expect.
+
+    If we program to an Implementation we get locked into
+    a specific type. Our code then needs modification if
+    our set of concrete type get extended.
+
+    <b>Problem
+    By using the "new" operator we are forcing ourselves
+    to a concrete implementation.
+    e.g. <i>Duck duck = new MallardDuck();</i>
+
+    Often we end up writing code with condictional logic to
+    determine which concrete object to create:
+
+        <i>Duck duck
+        <i>if (picnic) { duck = new MallardDuck(); }
+        <i>else if (hunting) { duck = new DecoyDuck(); }
+        <i>else if (inBathTub) { duck = new MallardDuck(); }
+
+    Here we make run-time decisions for which class to
+    instantiate. When we see this code we know that when
+    requirement changes, and we want to add new types,
+    we need to open up this code and change it. This violates
+    OCP.
+
+    <b>Lets look at what varies, the creation and encapsulate
+    <b>it into a factory class.
+end note
+
+@enduml

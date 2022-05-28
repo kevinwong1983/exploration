@@ -1,0 +1,62 @@
+@startuml
+skinparam monochrome true
+class Duck {
+    quack()
+    swim()
+    dispay()
+    fly()
+}
+
+note left of Duck::fly
+    new feature request: we
+    want duck to fly.
+end note
+
+class MalllardDuck{
+    dispay()
+}
+
+class RedheadDuck {
+    display()
+}
+
+class Rubberduck {
+    dispay()
+    quack()
+    fly()
+}
+
+Duck <|-- MalllardDuck
+Duck <|-- RedheadDuck
+Duck <|-- Rubberduck
+
+note top of Rubberduck
+    <b>Inheritence
+    * Inheritence is a "Is-a" Relationship
+    * Each duck has a FlyBehavior and a QuackBehavior.
+
+    <b>Problem with Inheritence
+    New rubber duck class added: however
+    rubber duck does not quack, they sqweeck!
+    * we need to <b>override</b> the duck method, to
+    make it sqweeck.
+end note
+note right of Rubberduck::fly
+    Rubber duck does not fly!
+    * now we also need to override fly method
+    and make sure it does nothing.
+end note
+
+class Decoyduck #green{
+    dispay()
+    quack()
+    fly()
+}
+Duck <|-- Decoyduck
+note top of Decoyduck
+    New decoy duck class added:
+    * we have same issues as rubber duck.
+    * methods are need to be overriden.
+end note
+
+@enduml

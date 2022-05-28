@@ -1,0 +1,35 @@
+@startuml
+skinparam monochrome true
+interface Menu {
+    createIterator()
+}
+
+class PancakeHouseMenu {
+    ArrayList menuItems
+    createIterator()
+}
+
+class Test {
+}
+
+interface Iterator {
+    hasNext()
+    next()
+}
+
+class PancakeHouseIterator {
+     hasNext()
+     next()
+}
+
+note bottom of Cafe
+    By building iterators for two menu's
+    we move the details of iteration to the
+    iterators and out of the Cafe.
+end note
+Menu <.. PancakeHouseMenu
+Menu o-- Cafe
+Iterator o-- Cafe
+Iterator <.. PancakeHouseIterator
+
+@enduml

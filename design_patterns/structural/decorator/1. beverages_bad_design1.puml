@@ -1,0 +1,73 @@
+@startuml
+skinparam monochrome true
+note as N1
+    <b>Design Problem
+
+    We have different basic beverages each
+    having a cost and description:
+    * HouseBlend
+    * DarkRoast
+    * Decaf
+    * Espresso
+
+    We have different condiments that add
+    extra cost and modifies description of
+    basic beverage:
+    * milk:
+    * mocha
+    * soy
+end note
+
+abstract Beverages {
+    getDescription()
+    cost()
+}
+
+note as N2
+    <b>Bad Design 1
+
+    Using inheritance only we
+    get an explosion of
+    different classes.
+end note
+
+class HouseBlend {
+    HouseBlend
+    cost()
+}
+class DarkRoast {
+    HouseBlend
+    cost()
+}
+class Decaf {
+    HouseBlend
+    cost()
+}
+class Espresso {
+    HouseBlend
+    cost()
+}
+
+Beverages <|.. HouseBlend
+Beverages <|.. DarkRoast
+Beverages <|.. Decaf
+Beverages <|.. Espresso
+
+class HouseBlendWithMilk {
+    getDescription()
+    cost()
+}
+class HouseBlendWithMocha {
+    getDescription()
+    cost()
+}
+class HouseBlendWithMochaAndSoy {
+    getDescription()
+    cost()
+}
+
+HouseBlend <|.. HouseBlendWithMilk
+HouseBlend <|.. HouseBlendWithMocha
+HouseBlend <|.. HouseBlendWithMochaAndSoy
+
+@enduml

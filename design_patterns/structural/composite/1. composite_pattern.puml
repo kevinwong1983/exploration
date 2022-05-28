@@ -1,0 +1,54 @@
+@startuml
+skinparam monochrome true
+
+class Client {
+}
+
+interface Component {
+}
+
+class Leaf {
+}
+
+class Composite {
+}
+
+Client -r-> Component
+Leaf -u-|> Component
+Composite -u-|> Component
+Composite --> Component
+
+note left of Client
+The Client uses the Component Interface
+to manipulate the objects in the composition
+end note
+
+note top of Component
+*The Component defines an interface for all
+objects in the composition: both the composite
+and the leaf nodes.
+*The Component may implement a default behavior
+for add(), remove(), getChild() and its operations.
+end note
+
+note right of Composite
+*The Composite's role is to define behavior of
+the components having children and to store child
+components.
+*The Composite also implements the Leaf related
+operations. Note that some of these may not
+make sense on a Composite, so in that case an
+exception might be generated.
+end note
+
+note left of Leaf
+*A leaf defines the behavior for the elements
+in the composition. It does this by implementing
+the operations the Composite supports.
+*Note that the leaf also inherit methods like add(),
+remove() getChild(), which don't necessarily make
+a lot of sense for a leaf node.
+*A leaf has no children
+end note
+
+@enduml

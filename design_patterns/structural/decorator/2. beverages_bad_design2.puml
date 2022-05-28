@@ -1,0 +1,59 @@
+@startuml
+skinparam monochrome true
+
+abstract Beverages {
+    Bool milk
+    bool soy
+    bool mocha
+    getDescription()
+    cost()
+    hasMilk
+    hasSoy
+    hasMocha
+    setMilk
+    setSoy
+    setMocha
+    // other usefull methods
+}
+
+note left of Beverages
+    <b>Bad design 2:  Overuse of composition
+    *condements added to beverages
+    using composition.
+end note
+note right of Beverages::cost
+    Need to add complex logic in cost() and
+    in getDescription() e.g.
+
+        if (hasMik(){ cost += 0.10 }
+        if (hasSoy(){ cost += 0.10 }
+        if (hasMocha(){ cost += 0.20 }
+
+    Also we cannot add for example a double
+    mocha without modifying the logic here.
+
+    <b>Not flexible nor maintainable!
+end note
+class HouseBlend {
+    HouseBlend
+    cost()
+}
+class DarkRoast {
+    HouseBlend
+    cost()
+}
+class Decaf {
+    HouseBlend
+    cost()
+}
+class Espresso {
+    HouseBlend
+    cost()
+}
+
+Beverages <|.. HouseBlend
+Beverages <|.. DarkRoast
+Beverages <|.. Decaf
+Beverages <|.. Espresso
+
+@enduml

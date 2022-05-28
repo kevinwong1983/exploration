@@ -1,0 +1,24 @@
+@startuml
+skinparam monochrome true
+class Client {
+    doSomething(TypeA a);
+}
+
+class TypeA {
+    methodA();
+    methodB();
+}
+class TypeB {
+    methodA();
+    methodB();
+}
+TypeA <|-- TypeB
+Client --> TypeA
+note as N1
+    "When we substitute TypeA with TypeB,
+     functionality breaks."
+end note
+Client .. N1
+N1 ..> TypeB
+
+@enduml

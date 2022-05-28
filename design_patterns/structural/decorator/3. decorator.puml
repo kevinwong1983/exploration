@@ -1,0 +1,59 @@
+@startuml
+skinparam monochrome true
+note as N
+<b>The Decorator Pattern
+This pattern attaches additional
+responsiblities to an object dynamically.
+Decorators provide a flexible alternative to
+subclassing for extending functionality.
+
+<b>Design principle: Open-close principle
+* We want classes to be open for extension
+behaviors, but we also want classes to be
+closed for extension.
+* Our goal is to be able to easily augment
+what we have without modifying existing code.
+end note
+
+interface Component {
+    methodA()
+    methodB()
+}
+
+class ConcreteComponent {
+    methodA()
+    methodB()
+}
+
+class Decorator {
+    methodA()
+    methodB()
+}
+
+class ConcreteDecorator1 {
+    Component wrapperObj
+    methodA()
+    methodB()
+}
+class ConcreteDecorator2 {
+    Component wrapperObj
+    methodA()
+    methodB()
+}
+
+note left of ConcreteDecorator1
+    The reason it is so important for both the
+    ConcreteComponent as the decorators to
+    implement the Component super class, is because
+    we want to make sure that we want to threat each
+    class in the same way. i.e. we want to be able
+    to wrap each decorator around any of the components.
+end note
+
+Component <|.. ConcreteComponent
+Component <|.. Decorator
+Decorator <|-- ConcreteDecorator1
+Decorator <|-- ConcreteDecorator2
+Component *-- ConcreteDecorator2
+
+@enduml

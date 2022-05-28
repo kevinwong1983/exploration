@@ -1,0 +1,50 @@
+@startuml
+skinparam monochrome true
+
+interface Factory {
+    createProduct()
+    operate()
+}
+
+note left of Factory
+    Factory Method defer instantiation
+    to subclasses. Factory is defining
+    operate method, but leaving the createProduct
+    method to be implemented by the subclasses.
+end note
+
+class FactoryOne {
+    createProduct()
+}
+
+class FactoryTwo {
+    createProduct()
+}
+
+Factory <|.. FactoryOne
+Factory <|.. FactoryTwo
+
+
+interface Product {
+    MethodA()
+    MethodB()
+}
+
+class ConcreteProductOne {
+  MethodA()
+  MethodB()
+}
+class ConcreteProductTwo {
+  MethodA()
+  MethodB()
+}
+
+Product <|.. ConcreteProductOne
+Product <|.. ConcreteProductTwo
+
+
+class Client
+Client --* Factory
+Client --* Product
+
+@enduml

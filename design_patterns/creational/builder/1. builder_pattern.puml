@@ -1,0 +1,40 @@
+@startuml
+skinparam monochrome true
+
+class Director {
+    construct()
+}
+
+interface Builder {
+    buildPart()
+}
+
+class ConcreteBuilder {
+    buildPart()
+    build()
+}
+
+Director -l-o Builder
+Builder <|-r- ConcreteBuilder
+
+note TOP of Director
+    Director uses the builder interface
+    to assemble the product. Depending on
+    which concrete builder it is using, it will
+    result in different concrete products.
+end note
+note TOP of ConcreteBuilder
+    Once the Director has called the
+    methods to build the product, the
+    director needs to get a reference
+    to the finished product. Here is where
+    the build method comes in.
+
+    The build method takes all the parts
+    that have been added to the object via the
+    Builder interace, assembles the final
+    product and returns that product to the
+    Director.
+end note
+
+@enduml

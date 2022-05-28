@@ -1,0 +1,53 @@
+@startuml
+skinparam monochrome true
+abstract Beverages {
+    getDescription()
+    cost()
+}
+
+class HouseBlend {
+    cost()
+}
+
+abstract CondementDecorator {
+    getDescription()
+}
+
+class Milk {
+    Beverage beverage
+    getDescription()
+    cost()
+}
+class Mocha {
+    Beverage beverage
+    getDescription()
+    cost()
+}
+
+Beverages <|.. HouseBlend
+Beverages <|.. CondementDecorator
+CondementDecorator <|-- Milk
+CondementDecorator <|-- Mocha
+note right of Beverages
+    By using a common beverage super
+    type with <b>enheritance</b>, we get the
+    type structure we need to treat coffee
+    and decorated coffee's both as beverages,
+    so we can decorate beverages multiple times
+    and call getDescription() and cost() on
+    basic coffee's or decorated coffee's.
+end note
+
+Beverages *-- Mocha
+note right on link
+    by using <b>composition</b> we get the flexibiltiy
+    in how we  add condiments (capabilities) to
+    our beverages.
+end note
+note left of Milk
+   note: Mocha both <b>HasA</b> Beverage
+   and <b>IsA</b> beverage!
+end note
+
+
+@enduml

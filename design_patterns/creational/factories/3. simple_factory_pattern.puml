@@ -1,0 +1,38 @@
+@startuml
+skinparam monochrome true
+
+note as N1
+    <b>The Simple Factory
+    simple factory pattern is the first
+    approach towards the more powerfull
+    factory patterns.
+
+    Notice that the simple factory decouples
+    the Process of creating objects from the
+    clients that use those objects.
+end note
+
+class Client {
+    orderPizza()
+}
+
+class SimpleFactory {
+    createProduct()
+}
+
+class Product {
+    methodA()
+    methodB()
+}
+
+Client -r-> SimpleFactory
+SimpleFactory -r-> Product
+
+class ConcreteProduct {
+}
+
+Product <|.. ConcreteProduct
+
+
+
+@enduml

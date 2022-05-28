@@ -118,15 +118,15 @@ class MultifunctionalOfficeMachine : public IMachine {
 public:
     MultifunctionalOfficeMachine(Printable &printer,
             Scannable scanner)
-            : printer{ printer }, scanner{ scanner } {
+            : printer_{ printer }, scanner_{ scanner } {
     }
     void print (std::vector<Document*> docs) override {
-        printer.print(docs);
+        printer_.print(docs);
     }
     void scan (std::vector<Document*> docs) override {
-        scanner.scan(docs);
+        scanner_.scan(docs);
     }
 private:
-    Printable& printer;
-    Scannable& scanner;
+    Printable& printer_;
+    Scannable& scanner_;
 };

@@ -1,0 +1,39 @@
+@startuml
+skinparam monochrome true
+
+class Director {
+    construct()
+}
+
+interface CarBuilder {
+    withDoors(int doors)
+    withMotor(string motor)
+    withColor(string color)
+    build()
+}
+
+class ElectricCarBuilder {
+}
+
+Director -l-o CarBuilder
+CarBuilder <|-r- ElectricCarBuilder
+
+class Car {
+    -int doors
+    -string color
+    -string motor
+}
+note left of Car
+    All private member
+    variables that are
+    only accessable through
+    the builder.
+end note
+class Tesla {
+   doCoolStuff()
+}
+
+CarBuilder .. Car
+Car <|-r- Tesla
+ElectricCarBuilder .. Tesla
+@enduml

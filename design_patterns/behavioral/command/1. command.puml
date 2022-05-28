@@ -1,0 +1,66 @@
+@startuml
+skinparam monochrome true
+
+note as N
+    <b>The Command Pattern
+    Decouples an object, making a request from
+    the one that knows how to perform it.
+end note
+class Client
+class Receiver {
+    action
+}
+class ConcreteCommand {
+    execute()
+    undo()
+    state
+}
+interface Command {
+    execute()
+    undo()
+}
+class Invoker {
+    setCommand()
+}
+
+Client -r-> Receiver
+ConcreteCommand -l-> Receiver
+Command <-u- ConcreteCommand
+Invoker -r-> Command
+Client .r.> ConcreteCommand
+
+note left of Client
+    Responsible for creating a
+    ConcreteCommand command and
+    setting its Receiver.
+    e.g. Application.
+end note
+note bottom of Receiver
+    The Receiver knows how to
+    perform the work needed to
+    carry out the request. Any
+    class can act as Receiver.
+    e.g. BankAccount.
+end note
+note bottom of ConcreteCommand
+    The ConcreteCommand defines a binding
+    between an action and a Receiver. The Invoker
+    makes a request by calling execute() and the
+    ConcreteCommand carries it out by calling
+    one or more actions on the Receiver.
+
+    In practice, it is not uncommon for "smart"
+    Command objects to implement the request
+    themselves rather than delegating to a receiver.
+end note
+note right of ConcreteCommand::execute
+    receiver->action();
+end note
+note top of Invoker
+    The invoker makes request of
+    a Command object by calling its
+    execute() method, which invokes
+    those action on the receiver.
+    e.g. UI/GUI
+end note
+@enduml

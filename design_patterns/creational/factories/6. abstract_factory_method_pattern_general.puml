@@ -1,0 +1,51 @@
+@startuml
+
+class Client
+
+class Factory {
+    operate()
+    createProductA()
+    createProductB()
+}
+
+class FactoryOne {
+    createProductA()
+    createProductB()
+}
+
+class FactoryTwo {
+    createProductA()
+    createProductB()
+}
+
+Factory <|.. FactoryOne
+Factory <|.. FactoryTwo
+Client --o Factory
+
+class ProductA {
+}
+class ConcreteProductAOne {
+}
+class ConcreteProductATwo {
+}
+ProductA <|.. ConcreteProductAOne
+ProductA <|.. ConcreteProductATwo
+Client ..> ProductA
+
+class ProductB {
+}
+class ConcreteProductBOne {
+}
+class ConcreteProductBTwo {
+}
+ProductB <|.. ConcreteProductBOne
+ProductB <|.. ConcreteProductBTwo
+Client ..> ProductB
+
+FactoryOne ..> ConcreteProductAOne
+FactoryOne ..> ConcreteProductBOne
+FactoryTwo ..> ConcreteProductATwo
+FactoryTwo ..> ConcreteProductBTwo
+
+
+@enduml

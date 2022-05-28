@@ -1,0 +1,31 @@
+@startuml
+skinparam monochrome true
+note as N1
+    <b>Problem
+    There are many ways to store objects and data
+    structure e.g. using collection type: array, vector,
+    list, linkedlist, set etc.
+    * When we have a function
+    that needs to go through the items, the
+    function needs to change if we choose a different
+    collection type. e.g. changing from vector to list.
+    * What if we need to write code that operates one
+    several collection types? We need to branch out for
+    every collection type.
+
+    To avoid this we need to separate what varies and
+    encapsulate it. What is varying here? The iteration.
+    <b>The Iteration pattern</b> encapsulate the collection type
+    so that changes in the collection type will will not
+    change the function and classes that uses them.
+end note
+
+note as N2
+    <b>Iterator Pattern
+    This pattern provides a way to access the elements
+    of an aggregate object sequentially without exposing
+    its underlying representation.
+end note
+
+
+@enduml

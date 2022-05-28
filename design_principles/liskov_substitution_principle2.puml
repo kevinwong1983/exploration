@@ -1,0 +1,24 @@
+@startuml
+skinparam monochrome true
+
+note as N2
+    *TypeB inherit from TypeA. We can have the situation
+    that when Client substitute TypeA with TypeB, things
+    break in a bad way. i.e. we derived from subclass, but
+    it turns out to be not substitutable for the superclass.
+    *In order to fix this, we can add a check for type in
+    the doSomething() method.
+
+        <i>void doSomething(TypeA a) {
+            <i>if (a instanceof TypeB) {
+                <i>// special case
+            <i>} else {
+                <i>// normal case
+            <i>}
+        <i>}
+
+    However this violated the Open/Closed Principle.
+    * <b>Liskov Substitution Principle</b>: You should always be
+    able to substitude subtypes from their base class.
+end note
+@enduml

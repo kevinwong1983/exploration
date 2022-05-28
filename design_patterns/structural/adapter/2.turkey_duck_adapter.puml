@@ -1,0 +1,31 @@
+@startuml
+skinparam monochrome true
+class DuckSimulator
+Interface Duck {
+    quack()
+    fly()
+}
+class TurkeyAdapter {
+    quack()
+    fly()
+}
+class Turkey {
+    gobble()
+    fly()
+}
+
+Duck *-- DuckSimulator : compose
+Duck <.. TurkeyAdapter : implements
+TurkeyAdapter *-- Turkey : compose
+
+note as N1
+    <b>The Adapter Example
+    The pattern coverts the interface of a
+    class into another interface that clients
+    expect. It allows classes to work together
+    that couldn't otherwise because of
+    incompatible interfaces.
+end note
+
+
+@enduml
